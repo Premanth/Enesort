@@ -1,0 +1,28 @@
+\begin{table}[h]\centering
+\caption{Enesort speedup (baseline time / Enesort time), n=100000, type=int32. Values $>1$ mean Enesort is faster.}
+\begin{tabular}{lrrrrrrrrrr}
+\toprule
+Workload & heapsort & ips4o & mergesort & mo3_quicksort & pdqsort & stable_sort & std_precheck & std_sort & timsort & yaroslavskiy \\
+\midrule
+all\_equal & \textbf{30.575} & \textbf{20.337} & \textbf{5.050} & \textbf{22.718} & \textbf{11.254} & \textbf{14.599} & \textcolor{red}{0.513} & \textbf{16.374} & \textbf{12.221} & \textcolor{red}{0.781} \\
+all\_equal\_but\_one & \textbf{11.970} & \textbf{6.156} & \textbf{2.393} & \textbf{9.400} & \textbf{4.678} & \textbf{5.339} & \textbf{4.636} & \textbf{7.196} & \textbf{4.912} & \textcolor{red}{0.307} \\
+ascending & \textbf{34.644} & \textbf{5.790} & \textbf{3.562} & \textbf{7.122} & \textbf{5.860} & \textbf{4.586} & \textcolor{red}{0.249} & \textbf{7.519} & \textbf{4.441} & \textbf{4.833} \\
+blocks\_ascending & \textbf{5.681} & \textbf{1.372} & \textcolor{red}{0.695} & \textbf{1.164} & \textbf{1.837} & \textcolor{red}{0.696} & \textbf{1.527} & \textbf{1.141} & \textbf{1.055} & \textbf{1.176} \\
+descending & \textbf{30.316} & \textbf{3.003} & \textbf{13.462} & \textbf{9.311} & \textbf{2.661} & \textbf{5.009} & \textcolor{red}{0.370} & \textbf{4.509} & \textbf{5.305} & \textbf{3.641} \\
+few\_distinct\_10 & \textbf{3.529} & \textbf{1.648} & \textbf{2.275} & \textbf{1.053} & \textbf{1.362} & \textbf{1.738} & \textbf{1.149} & 1.017 & \textbf{1.798} & \textcolor{red}{0.836} \\
+few\_distinct\_100 & \textbf{2.868} & \textbf{1.398} & \textbf{1.881} & \textbf{1.204} & 1.031 & \textbf{1.375} & 1.014 & \textbf{1.478} & \textbf{1.607} & 1.035 \\
+few\_distinct\_2 & \textbf{6.967} & \textbf{3.057} & \textbf{4.116} & \textbf{1.936} & \textbf{2.126} & \textbf{2.715} & \textbf{2.019} & \textbf{1.953} & \textbf{2.584} & \textcolor{red}{0.904} \\
+median\_of\_3\_killer & \textbf{8.424} & \textbf{2.665} & \textbf{1.841} & \textbf{2.154} & \textbf{2.616} & \textbf{1.757} & \textbf{2.552} & \textbf{2.076} & \textbf{2.251} & \textbf{1.116} \\
+nearly\_sorted\_10 & \textbf{3.185} & \textcolor{red}{0.468} & \textcolor{red}{0.682} & \textcolor{red}{0.716} & \textcolor{red}{0.466} & \textcolor{red}{0.424} & \textcolor{red}{0.667} & \textcolor{red}{0.680} & \textcolor{red}{0.436} & \textcolor{red}{0.694} \\
+nearly\_sorted\_1pct & \textbf{1.620} & \textcolor{red}{0.289} & \textcolor{red}{0.536} & \textcolor{red}{0.296} & \textcolor{red}{0.259} & \textcolor{red}{0.301} & \textcolor{red}{0.384} & \textcolor{red}{0.332} & \textcolor{red}{0.356} & \textcolor{red}{0.609} \\
+nearly\_sorted\_5pct & \textbf{1.229} & \textcolor{red}{0.356} & \textcolor{red}{0.705} & \textcolor{red}{0.371} & \textcolor{red}{0.303} & \textcolor{red}{0.344} & \textcolor{red}{0.310} & \textcolor{red}{0.389} & \textcolor{red}{0.341} & \textcolor{red}{0.590} \\
+organ\_pipe & \textbf{1.941} & \textbf{2.093} & \textcolor{red}{0.347} & \textbf{1.256} & \textbf{1.845} & \textcolor{red}{0.284} & \textbf{1.741} & \textbf{2.425} & \textcolor{red}{0.327} & \textcolor{red}{0.766} \\
+reverse\_noise & \textbf{2.484} & \textcolor{red}{0.726} & \textcolor{red}{0.717} & \textcolor{red}{0.721} & \textcolor{red}{0.918} & \textcolor{red}{0.563} & \textcolor{red}{0.695} & \textcolor{red}{0.686} & \textcolor{red}{0.816} & \textcolor{red}{0.616} \\
+sawtooth\_m16 & \textbf{8.468} & \textbf{2.183} & \textbf{1.976} & \textbf{2.556} & \textbf{1.736} & \textbf{1.189} & \textbf{1.806} & \textbf{2.323} & \textbf{1.382} & 1.049 \\
+sawtooth\_m4 & \textbf{16.178} & \textbf{2.571} & \textbf{4.293} & \textbf{3.215} & \textbf{2.321} & \textbf{3.290} & \textbf{2.535} & \textbf{2.618} & \textbf{2.837} & \textcolor{red}{0.844} \\
+sawtooth\_m64 & \textbf{6.721} & \textbf{2.243} & \textbf{1.155} & \textbf{1.707} & \textbf{1.519} & \textcolor{red}{0.838} & \textbf{1.479} & \textbf{1.765} & \textcolor{red}{0.864} & 0.990 \\
+sorted\_append\_100 & \textbf{2.086} & \textcolor{red}{0.777} & \textcolor{red}{0.229} & \textcolor{red}{0.657} & \textcolor{red}{0.798} & \textcolor{red}{0.270} & \textcolor{red}{0.642} & 1.037 & \textcolor{red}{0.248} & \textcolor{red}{0.543} \\
+uniform\_random & \textcolor{red}{0.880} & \textcolor{red}{0.572} & \textbf{1.072} & \textcolor{red}{0.721} & \textcolor{red}{0.540} & \textcolor{red}{0.632} & 1.041 & \textcolor{red}{0.764} & \textcolor{red}{0.721} & \textcolor{red}{0.801} \\
+zipf & \textbf{1.434} & \textcolor{red}{0.870} & \textcolor{red}{0.940} & \textcolor{red}{0.892} & 1.009 & \textbf{1.084} & \textcolor{red}{0.769} & \textcolor{red}{0.796} & \textbf{1.208} & \textcolor{red}{0.732} \\
+\bottomrule
+\end{tabular}\end{table}
