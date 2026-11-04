@@ -62,6 +62,11 @@ def algo_label(name):
 # ---------------------------------------------------------------------------
 # Load data
 # ---------------------------------------------------------------------------
+
+def save_fig_both(fig, fname):
+    fig.savefig(fname, bbox_inches='tight')
+    png_name = fname.replace('.pdf', '.png')
+    fig.savefig(png_name, bbox_inches='tight', dpi=300)
 def load_summary(results_dir):
     p = os.path.join(results_dir, 'analysis', 'summary.csv')
     if not os.path.exists(p):
@@ -107,7 +112,7 @@ def plot_time_vs_n(df, fig_dir, type_='int32', workloads=None):
         ax.legend(fontsize=8, ncol=3, loc='upper left')
         ax.grid(True, which='both', alpha=0.3)
         fname = os.path.join(fig_dir, f'time_vs_n_{wload}_{type_}.pdf')
-        fig.savefig(fname, bbox_inches='tight')
+        save_fig_both(fig, fname)
         plt.close(fig)
     print(f"  time_vs_n plots â†’ {fig_dir}")
 
@@ -139,7 +144,7 @@ def plot_ns_per_elem(df, fig_dir, type_='int32', workloads=None):
         ax.legend(fontsize=8, ncol=3, loc='upper left')
         ax.grid(True, alpha=0.3)
         fname = os.path.join(fig_dir, f'ns_per_elem_{wload}_{type_}.pdf')
-        fig.savefig(fname, bbox_inches='tight')
+        save_fig_both(fig, fname)
         plt.close(fig)
 
 # ---------------------------------------------------------------------------
@@ -183,7 +188,7 @@ def plot_speedup_heatmap(speedup_df, fig_dir, type_='int32'):
     cbar = fig.colorbar(im, ax=ax, fraction=0.02)
     cbar.set_label('Speedup (baseline/Enesort)', fontsize=9)
     fname = os.path.join(fig_dir, f'speedup_heatmap_{type_}.pdf')
-    fig.savefig(fname, bbox_inches='tight')
+    save_fig_both(fig, fname)
     plt.close(fig)
     print(f"  speedup heatmap â†’ {fname}")
 
@@ -212,7 +217,7 @@ def plot_ablation(df, fig_dir, workload='uniform_random', n=100000, type_='int32
     ax.set_title(f'Ablation study â€“ workload: {workload}, n={n}, type: {type_}', fontsize=12)
     ax.grid(axis='y', alpha=0.3)
     fname = os.path.join(fig_dir, f'ablation_{workload}_n{n}_{type_}.pdf')
-    fig.savefig(fname, bbox_inches='tight')
+    save_fig_both(fig, fname)
     plt.close(fig)
     print(f"  ablation bar chart â†’ {fname}")
 
@@ -238,7 +243,7 @@ def plot_cutoff_sweep(df, fig_dir, type_='int32'):
         ax.legend()
         ax.grid(True, alpha=0.3)
         fname = os.path.join(fig_dir, f'cutoff_sweep_{w}_{type_}.pdf')
-        fig.savefig(fname, bbox_inches='tight')
+        save_fig_both(fig, fname)
         plt.close(fig)
         print(f"  cutoff sweep plot -> {fname}")
 
@@ -260,7 +265,7 @@ def plot_pivot_study(df, fig_dir, type_='int32'):
         ax.grid(True, alpha=0.3)
         plt.xticks(rotation=20, ha='right')
         fname = os.path.join(fig_dir, f'pivot_study_{w}_{type_}.pdf')
-        fig.savefig(fname, bbox_inches='tight')
+        save_fig_both(fig, fname)
         plt.close(fig)
         print(f"  pivot study plot -> {fname}")
 
@@ -290,7 +295,7 @@ def plot_counters(counters_csv, fig_dir):
         ax2.grid(axis='y', alpha=0.3)
         plt.tight_layout()
         fname = os.path.join(fig_dir, 'counter_study_per_element.pdf')
-        fig.savefig(fname, bbox_inches='tight')
+        save_fig_both(fig, fname)
         plt.close(fig)
         print(f"  counter study plot -> {fname}")
 

@@ -45,3 +45,4 @@ for w in ['uniform_random', 'few_distinct_10']:
         row = sub_ab[sub_ab['algorithm'] == a]
         if not row.empty:
             print(f"    {a:18s}: {row['median_ns'].values[0]/1e6:.3f}ms")
+
