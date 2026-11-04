@@ -206,3 +206,4 @@ for ext in ['png', 'pdf']:
     fig.savefig(out, bbox_inches='tight', dpi=300)
 plt.close(fig)
 print("Generated speedup_vs_pdqsort_n100000")
+
