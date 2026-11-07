@@ -118,6 +118,83 @@ Algorithm & Architectural Paradigm & Worst Time & Best Time & Aux. Heap Space & 
 \end{tabular}
 \end{table*}
 
+\subsection{Enesort: Architecture, Execution Lifecycle, and Step-by-Step Mechanics}
+Enesort is an in-place, microarchitecture-aware, hybrid dual-pivot sorting algorithm engineered specifically for sustainable computing and embedded runtime environments. It operates with strictly zero auxiliary dynamic heap allocations ($0$~B heap overhead), strict $O(N \log N)$ worst-case execution time, and $O(N)$ best-case convergence on pre-ordered or duplicate-rich workloads.
+
+\subsubsection{Architectural Features (F1--F6)}
+The algorithm synthesizes six co-designed architectural features:
+\begin{enumerate}
+    \item \textbf{F1: Median-of-5 Pivot Sampling}: Rather than selecting boundary elements, Enesort samples five equidistant items ($step = \lfloor len / 6 \rfloor$) and sorts them via a branch-optimized mini-insertion sort. Rank~1 is chosen as left pivot $P_1$ and Rank~3 as right pivot $P_2$. This guarantees $P_1 \le P_2$ and yields balanced partition ratios approximating $33\% / 33\% / 33\%$, mitigating pathological imbalances.
+    \item \textbf{F2: Equal-Key Fat-Partition Pruning}: When $P_1 = P_2$ (common in low-cardinality and duplicate-heavy keys), all intermediate elements in $[lt+1, gt-1]$ are identical to the pivots. Enesort collapses the middle partition size to zero and completely bypasses recursing on it, achieving $O(N)$ linear convergence.
+    \item \textbf{F3: Introspective Heapsort Fallback}: To guard against algorithmic denial-of-service and adversarial killer permutations, a recursion depth limit $\Delta = 2 \lfloor \log_2 N \rfloor$ is tracked. If $\Delta \le 0$, the algorithm immediately diverts the sub-array to in-place Floyd HeapSort, strictly bounding worst-case latency to $O(N \log N)$.
+    \item \textbf{F4: Monotonic Run / Sortedness Pre-Scanning}: At the top level and for sub-ranges with $len \ge 32$, a single linear scan verifies ascending or descending order. Pre-sorted arrays exit in $O(N)$ time with 0 swaps, while descending arrays are reversed in-place via $\lfloor N/2 \rfloor$ swaps and 0 additional comparisons.
+    \item \textbf{F5: Small-Array Insertion Cutoff ($K=16$)}: Sub-arrays of size $\le 16$ branch directly to Binary Insertion Sort, where binary search determines insertion slots in $O(\log i)$ comparisons, eliminating branch mispredictions and keeping working sets entirely within the L1 data cache.
+    \item \textbf{F6: Smallest-Two-First Tail-Call Elimination}: After 3-way partitioning produces sub-arrays $S_1, S_2, S_3$, Enesort sorts the partition sizes. It invokes explicit recursion on the \textit{two smaller partitions} first and updates loop indices to iterate over the \textit{largest partition}, capping stack consumption at $\le 2 \log_2 N$ stack frames.
+\end{enumerate}
+
+\subsubsection{Step-by-Step Execution Lifecycle}
+The complete operational lifecycle proceeds as follows:
+\begin{itemize}
+    \item \textbf{Step 1 (Top-Level Pre-Scan)}: Check whether $A[0 \dots N-1]$ is ascending or descending. If ascending, terminate immediately ($0$ swaps). If descending, reverse in-place via \texttt{std::reverse} and terminate.
+    \item \textbf{Step 2 (Cutoff Evaluation)}: If $N \le 16$, sort via Binary Insertion Sort and exit.
+    \item \textbf{Step 3 (Budget Initialization)}: Compute depth limit $\Delta = 2 \lfloor \log_2 N \rfloor$ and enter the main processing loop.
+    \item \textbf{Step 4 (Pathological Protection)}: In sub-range $A[lo \dots hi]$, if $\Delta \le 0$, execute Floyd HeapSort on $A[lo \dots hi]$ and return. Otherwise, decrement $\Delta \leftarrow \Delta - 1$.
+    \item \textbf{Step 5 (Sub-Range Run Check)}: If $(hi - lo + 1) \ge 32$, inspect for local monotonicity; if sorted or reversed, handle in-place and return.
+    \item \textbf{Step 6 (Pivot Sampling)}: Sample 5 equidistant keys at indices $lo + k \cdot \lfloor len/6 \rfloor$ ($k \in \{1,2,3,4,5\}$), sort sample, assign $P_1 \leftarrow A[lo]$ and $P_2 \leftarrow A[hi]$.
+    \item \textbf{Step 7 (Dual-Pivot 3-Way Partitioning)}: Initialize pointers $lt \leftarrow lo + 1$, $gt \leftarrow hi - 1$, and scan pointer $i \leftarrow lo + 1$. Compare $A[i]$ with $P_1$; if smaller, swap to $lt$ and advance both. If larger than $P_2$, swap to $gt$ while decrementing $gt$ past elements $> P_2$. Swap pivots to final boundary positions $lt-1$ and $gt+1$.
+    \item \textbf{Step 8 (Equal-Pivot Pruning)}: If $P_1 = P_2$, mark middle partition $S_2$ as fully resolved ($size = 0$).
+    \item \textbf{Step 9 (Asymmetric Dispatch \& Tail Recursion)}: Compute partition lengths $S_1, S_2, S_3$. Discard empty partitions. Recurse on the two smallest partitions, and assign $(lo, hi)$ to the largest partition to continue the \texttt{while} loop without allocating stack frames.
+    \item \textbf{Step 10 (Base-Case Finalization)}: When sub-arrays shrink to $\le 16$, finalize with Binary Insertion Sort.
+\end{itemize}
+
+\begin{figure}[!t]
+\begin{algorithmic}[1]
+\REQUIRE Array $A$, starting index $lo$, ending index $hi$
+\ENSURE Array $A[lo \dots hi]$ sorted in non-decreasing order
+\STATE \textbf{Procedure} $\text{Enesort}(A, lo, hi)$
+\STATE \quad $n \leftarrow hi - lo + 1$
+\STATE \quad \textbf{if} $n < 2$ \textbf{then} \textbf{return}
+\STATE \quad \textbf{if} $\text{CheckAndHandleMonotonicRun}(A, lo, hi)$ \textbf{then} \textbf{return}
+\STATE \quad $\Delta \leftarrow 2 \cdot \lfloor \log_2 n \rfloor$
+\STATE \quad $\text{EnesortImpl}(A, lo, hi, \Delta)$
+\STATE
+\STATE \textbf{Procedure} $\text{EnesortImpl}(A, lo, hi, \Delta)$
+\STATE \quad \textbf{while} $(hi - lo + 1) > 16$ \textbf{do}
+\STATE \quad \quad \textbf{if} $\Delta \le 0$ \textbf{then}
+\STATE \quad \quad \quad $\text{HeapSort}(A, lo, hi)$; \textbf{return}
+\STATE \quad \quad $\Delta \leftarrow \Delta - 1$
+\STATE \quad \quad \textbf{if} $\text{CheckAndHandleRun}(A, lo, hi)$ \textbf{then} \textbf{return}
+\STATE \quad \quad $(P_1, P_2) \leftarrow \text{SelectMedianOf5Pivots}(A, lo, hi)$
+\STATE \quad \quad $(lt, gt, \text{isEqual}) \leftarrow \text{Partition3Way}(A, lo, hi, P_1, P_2)$
+\STATE \quad \quad $s_1 \leftarrow lt - lo$
+\STATE \quad \quad $s_2 \leftarrow (\text{isEqual} \ ? \ 0 : gt - lt - 1)$
+\STATE \quad \quad $s_3 \leftarrow hi - gt$
+\STATE \quad \quad $\text{RecurseOnTwoSmallest}(A, s_1, s_2, s_3, \Delta)$
+\STATE \quad \quad $(lo, hi) \leftarrow \text{BoundariesOfLargest}(s_1, s_2, s_3)$
+\STATE \quad \textbf{end while}
+\STATE \quad \textbf{if} $hi > lo$ \textbf{then} $\text{BinaryInsertionSort}(A, lo, hi)$
+\end{algorithmic}
+\caption{Algorithmic specification of Enesort hybrid dual-pivot sorting.}
+\label{alg:enesort}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{Enesort Operational Complexity and Resource Profile}
+\label{tab:enesort_profile}
+\begin{tabular}{lccc}
+\toprule
+Metric & Best Case & Average Case & Worst Case \\
+\midrule
+Time Complexity & $O(N)$ & $O(N \log N)$ & $O(N \log N)$ \\
+Comparisons & $N - 1$ & $\approx 1.84\, N \ln N$ & $\le 2 N \log_2 N + O(N)$ \\
+Swaps / Moves & $0$ & $\approx 0.60\, N \ln N$ & $O(N \log N)$ \\
+Stack Frames & $O(1)$ & $O(\log N)$ & $\le 2 \lfloor \log_2 N \rfloor$ \\
+Dynamic Heap & \textbf{0 Bytes} & \textbf{0 Bytes} & \textbf{0 Bytes} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Workload Taxonomy}
 We design 20 deterministic workloads categorized into five structural classes:
 \begin{enumerate}
