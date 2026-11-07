@@ -210,7 +210,7 @@ def build_paper2():
     add_title(doc, "Adversarial Robustness, Microarchitectural Efficiency, and Energy-Performance Trade-offs in In-Place Sorting: An Empirical Study of Enesort")
     add_authors(doc, 
                 "Author One, Senior Member, IEEE, Author Two, and Author Three, Member, IEEE",
-                "Department of Computer Science and Engineering, Computer Systems Architecture Group\nEmail: {author1, author2, author3}@institution.edu")
+                "Department of Computer Science and Engineering, Sustainable Systems and Computer Architecture Group\nEmail: {author1, author2, author3}@institution.edu")
 
     # Abstract & Keywords
     abstract_text = (
@@ -220,7 +220,7 @@ def build_paper2():
         "when exposed to pathological or adversarial inputs, such as McIlroy killer permutations, organ-pipe sequences, and low-cardinality datasets. "
         "Grounding our investigation in recent systematic literature on green software metrics (García-Mireles et al., 2026; Devadas & T, 2026; "
         "El Outmani et al., 2025), this paper presents an exhaustive empirical stress-test of Enesort, an in-place adaptive dual-pivot sorting algorithm, "
-        "benchmarked against 10 state-of-the-art sorting algorithms (std::sort, std::stable_sort, pdqsort, IPS4o, TimSort, MergeSort, HeapSort, "
+        "benchmarked against ten state-of-the-art sorting algorithms (std::sort, std::stable_sort, pdqsort, IPS4o, TimSort, MergeSort, HeapSort, "
         "Yaroslavskiy dual-pivot, and median-of-3 quicksort) across 20 distinct synthetic, real-world, and adversarial workloads. Our protocol spans "
         "24,210 logged trials with independent pseudorandom seeds, recording wall-clock execution latency, bootstrap confidence intervals, Holm-corrected "
         "Wilcoxon signed-rank significance tests, and exact operational step counts (comparisons and swaps per element). Enesort demonstrates decisive "
@@ -230,35 +230,84 @@ def build_paper2():
         "whereas Enesort operates strictly in-place with 0 bytes of dynamic heap memory and bounded logarithmic stack depth, establishing Pareto efficiency for "
         "sustainable, memory-constrained computing."
     )
-    keywords_text = "Sustainable software engineering, Green computing, Quicksort, Microarchitecture, Adversarial inputs, Operational step counts, In-place sorting, Energy efficiency."
+    keywords_text = "Algorithm engineering, Empirical benchmarking, Sorting algorithms, Adversarial robustness, Research questions, Green software metrics, Operational step counts, Cache hierarchies."
     add_abstract(doc, abstract_text, keywords_text)
 
-    # Section I
+    # Section I: Introduction
     add_heading_1(doc, "I. INTRODUCTION")
     add_paragraph(doc, 
-        "Modern high-performance computing platforms face severe constraints imposed by power consumption, thermal management, and carbon emissions. "
-        "Recent tertiary and systematic studies by García-Mireles et al. [18] and Devadas & T [21] establish that software energy efficiency cannot be "
-        "assessed in isolation from the hardware execution environment. Specifically, computational energy is consumed through active CPU cycles, memory bus "
-        "transactions across cache levels (L1, L2, L3, and main RAM), and pipeline flushes caused by branch mispredictions. Furthermore, empirical investigations "
-        "by El Outmani, Jaara, and Azizi [12] and Yang [11] show that sorting algorithms exhibit substantial variations in Joules consumed per sorted sequence, "
-        "strongly correlated with operational comparison step counts, cache miss penalties, and dynamic memory allocation overhead.")
+        "Sorting primitives constitute critical computational infrastructure across modern computing systems, powering relational database indexes, "
+        "distributed analytical engines, key-value stores, and operating system schedulers. In these environments, an algorithm's practical throughput and "
+        "computational sustainability are dictated not only by asymptotic comparison complexity, but also by microarchitectural interactions: L1/L2/L3 data cache "
+        "residency, instruction pipeline utilization, branch target prediction accuracy, and auxiliary memory footprints.")
 
     add_paragraph(doc, 
-        "Historically, sorting benchmark literature has overwhelmingly reported execution metrics on uniformly distributed random arrays. While uniform "
-        "random inputs provide a baseline for theoretical validation, real-world telemetry streams, database log indices, and operating system schedulers "
-        "(Ijaz et al. [20]) frequently encounter non-random data: presorted runs, discrete clusters of duplicate records, and reverse-ordered series. "
-        "Even more critical are maliciously crafted adversarial sequences—such as McIlroy's median-of-3 killer sequences [3]—which exploit deterministic pivot "
-        "selection to force quicksort implementations into pathological O(N^2) quadratic computational explosions, causing severe CPU thermal throttling "
-        "and Denial-of-Service (DoS) failure modes.")
+        "A persistent challenge in algorithm engineering is the discrepancy between idealized theoretical assumptions (such as independent and identically "
+        "distributed uniform random inputs) and real-world data topologies. Production datasets frequently exhibit pre-existing sorted runs, inverted sequences, "
+        "large clusters of duplicate keys, or structured periodic patterns. Furthermore, adversarial inputs specifically synthesized to exploit algorithmic "
+        "pivot-selection heuristics (e.g., anti-quicksort killer sequences) can induce quadratic O(N^2) execution times, causing severe latency spikes, thermal "
+        "throttling, or algorithmic denial-of-service (DoS) conditions.")
 
     add_paragraph(doc, 
-        "To establish an unyielding empirical baseline for sustainable, robust in-place sorting, this study conducts an exhaustive experimental evaluation of "
-        "Enesort. Across 24,210 logged trials, we compare Enesort against 10 established baselines across 20 distinct workloads, evaluating wall-clock latency, "
-        "operational comparison and swap step counts per element, microarchitectural cache scaling, and auxiliary heap memory footprints.")
+        "To address these diverse workloads, modern software engineering has bifurcated into two primary paradigms: (1) In-Place Partitioning Hybrids "
+        "(such as Introsort, Yaroslavskiy dual-pivot quicksort, pdqsort, and Enesort), which prioritize zero auxiliary heap allocation and cache-friendly contiguous "
+        "array scanning; and (2) Adaptive Merge-Based Sorts (such as TimSort, standard merge sort, and std::stable_sort), which identify existing monotonic runs "
+        "and merge them in linear time at the cost of O(N) auxiliary dynamic buffer allocation.")
 
-    # Section II
-    add_heading_1(doc, "II. BENCHMARKED ALGORITHMS AND WORKLOAD TAXONOMY")
-    add_paragraph(doc, "We classify the 10 benchmarked algorithms into three architectural paradigms:")
+    # Section II: Literature Review
+    add_heading_1(doc, "II. LITERATURE REVIEW")
+    add_paragraph(doc, 
+        "Sorting algorithms have been studied extensively since Hoare's introduction of Quicksort in 1962 [1] and Knuth's classical analysis [2]. "
+        "Sedgewick [3] explored pivot heuristics and small-array cutoffs to minimize branching overhead. Bentley and McIlroy [24] introduced fat partitioning "
+        "to isolate duplicate keys at array boundaries, forming the basis for industrial C library routines. Musser [8] resolved quicksort's worst-case quadratic "
+        "behavior by introducing Introsort, which tracks recursion depth and branches to heapsort when depth exceeds 2*floor(log2 N). In 2009, Yaroslavskiy [5] "
+        "demonstrated that dual-pivot partitioning reduces memory traffic compared to single-pivot quicksort, prompting its integration into the Java 7/8 standard "
+        "libraries. Wild and Nebel [7] formally analyzed Yaroslavskiy's algorithm, proving that dual-pivot partitioning reduces comparison costs on average-case "
+        "random data. In the merge-sort domain, Peters [9] developed TimSort, which exploits existing monotonic runs to achieve linear time on structured inputs.")
+
+    add_paragraph(doc, 
+        "In parallel, software sustainability and green computing have emerged as major research disciplines. Lano, Rahman, and Alwakeel [14] formulated "
+        "model-based sustainability refactoring to eliminate algorithmic energy flaws. García-Mireles et al. [18] conducted a comprehensive tertiary study "
+        "of 80 systematic reviews on software engineering sustainability, identifying energy efficiency as the predominant focus and emphasizing the need for "
+        "standardized experimental measurement across execution runtime, resource utilization, and carbon footprint. Roy et al. [23] established a formal "
+        "taxonomy of sustainability requirements for software architecture, while Devadas and T [21] constructed a PRISMA-compliant taxonomy connecting algorithmic "
+        "design directly to energy and carbon minimization. Furthermore, Podder et al. [22] demonstrated that software-level algorithmic decisions consistently "
+        "deliver 30% to 50% computational energy savings without hardware changes. Investigations by El Outmani et al. [12] and Yang [11] specifically analyzed the "
+        "empirical energy consumption of sorting algorithms, demonstrating that reducing branch mispredictions and operational comparison steps directly lowers "
+        "Joules consumed per sorted sequence. Compiler choices and runtime environments have also been shown to strongly modulate algorithmic energy efficiency "
+        "[6, 13, 17, 20].")
+
+    # Section III: Research Gaps & Research Questions
+    add_heading_1(doc, "III. RESEARCH GAPS & RESEARCH QUESTIONS")
+    add_heading_2(doc, "A. Identified Research Gaps")
+    add_paragraph(doc, 
+        "Despite the extensive literature, several fundamental research gaps remain:\n"
+        "• Gap 1 (Adversarial & Duplicate Vulnerability): While dual-pivot quicksort algorithms achieve superior performance on random data, their vulnerability "
+        "to adversarial killer permutations (such as McIlroy's median-of-3 killer sequences) and low-cardinality duplicate clusters remains insufficiently "
+        "characterized in empirical comparative literature.\n"
+        "• Gap 2 (Conflation of Timing Jitter with Algorithmic Work): Most benchmarks rely solely on wall-clock execution time, which conflates OS scheduling "
+        "jitter, CPU thermal frequency scaling, and cache noise with fundamental algorithmic comparison and swap complexity.\n"
+        "• Gap 3 (Omission of Dynamic Heap Footprint in Green Metrics): Comparative studies frequently praise merge-based sorters (such as TimSort) for adaptive "
+        "speedups on run-rich inputs while completely ignoring their substantial auxiliary dynamic memory requirements (O(N) heap allocation), which induce memory "
+        "fragmentation and cache pollution in constrained systems.\n"
+        "• Gap 4 (Lack of Non-Parametric Statistical Rigor): The sorting benchmark literature frequently reports simple sample means or best-of-five runs without "
+        "reporting confidence intervals or formal paired hypothesis testing.")
+
+    add_heading_2(doc, "B. Research Questions")
+    add_paragraph(doc, 
+        "To resolve these gaps, this study investigates four primary research questions:\n"
+        "• RQ1 (Cross-Workload Comparative Throughput): How does Enesort compare against established in-place and merge-based baselines across diverse structural, "
+        "duplicate, and random distributions at scale?\n"
+        "• RQ2 (Adversarial Robustness): Does introspective depth-limited fallback effectively insulate dual-pivot quicksort from O(N^2) quadratic degradation under "
+        "explicitly engineered killer permutations?\n"
+        "• RQ3 (Operational Step Complexity): What are the exact comparison and swap costs per element (C/N and S/N) across algorithms when isolating hardware timing jitter?\n"
+        "• RQ4 (Memory-Energy Pareto Trade-offs): What is the empirical trade-off between auxiliary dynamic memory consumption and execution runtime, and when does "
+        "in-place sorting dominate in sustainable computing?")
+
+    # Section IV: Methodology
+    add_heading_1(doc, "IV. METHODOLOGY")
+    add_heading_2(doc, "A. Algorithm Taxonomy & Paradigm Mechanics")
+    add_paragraph(doc, "We evaluate ten state-of-the-art sorting algorithms representing distinct design philosophies, as summarized in Table I:")
     
     headers_tax = ["Algorithm", "Architectural Paradigm", "Worst Time", "Best Time", "Aux. Heap Space", "Stack Bound", "Stability"]
     rows_tax = [
@@ -276,18 +325,34 @@ def build_paper2():
     add_table(doc, "TABLE I: ALGORITHM TAXONOMY, ASYMPTOTIC BOUNDS, AND AUXILIARY MEMORY CHARACTERISTICS",
               headers_tax, rows_tax, [1.1, 1.8, 0.8, 0.7, 0.9, 1.1, 0.6])
 
-    add_heading_2(doc, "A. 20-Workload Benchmark Suite")
+    add_heading_2(doc, "B. Workload Taxonomy (20 Workloads)")
     add_paragraph(doc, 
         "Our benchmark harness incorporates 20 deterministic, seed-controlled workload generators designed to probe specific failure modes:\n"
-        "• Uniform Random: Baseline uncorrelated uniform keys.\n"
-        "• Monotonic Distributions: ascending, descending, and blocks_ascending.\n"
-        "• Perturbed Sorted: nearly_sorted_10, nearly_sorted_1pct, nearly_sorted_5pct, and sorted_append_100.\n"
-        "• Structural Permutations: organ_pipe, sawtooth_m4, sawtooth_m16, sawtooth_m64, and reverse_noise.\n"
-        "• Discrete & Duplicate Keys: all_equal, all_equal_but_one, few_distinct_2, few_distinct_10, few_distinct_100, and zipf-distributed.\n"
-        "• Adversarial Killer Inputs: median_of_3_killer sequences constructed using McIlroy's adversary algorithm.")
+        "• Monotonic & Run-Rich: ascending, descending, organ_pipe (ascending followed by descending), sorted_append_100 (pre-sorted array with 100 trailing "
+        "random keys), and blocks_ascending (contiguous pre-sorted chunks).\n"
+        "• Duplicate-Dense: all_equal, all_equal_but_one, and few_distinct (k in {2, 10, 100} distinct keys).\n"
+        "• Periodic & Modulo: sawtooth (i mod m for m in {4, 16, 64}).\n"
+        "• Stochastic & Noise: uniform_random, zipf (alpha = 1.0), reverse_noise (reversed array with local perturbations), and nearly_sorted (k random swaps "
+        "for k in {10, 1%, 5%}).\n"
+        "• Adversarial: median_of_3_killer, specifically engineered using McIlroy's adversary heuristic to induce worst-case partitioning splits in median-of-3 "
+        "pivot selectors.")
 
-    # Section III
-    add_heading_1(doc, "III. EMPIRICAL RESULTS & CROSS-WORKLOAD ANALYSIS")
+    add_heading_2(doc, "C. Execution Environment & Statistical Rigor")
+    add_paragraph(doc, 
+        "All experiments were executed on an AMD Ryzen 7 5700U platform (8 physical cores, 16 threads, 1.8 GHz base, up to 4.3 GHz boost, 8 MB L3 cache, "
+        "16 GB DDR4 RAM) running 64-bit Windows OS, compiled with GCC 16.2.0 (x86_64-w64-mingw32, UCRT) with optimization flags -O3 -march=native. "
+        "Each benchmark cell was evaluated across 30 independent trials using distinct recorded pseudorandom seeds, with cache warm-up cycles and isolated memory buffers.\n"
+        "For statistical rigor, we report median latencies, interquartile ranges (IQR), 10,000-resample bootstrap 95% confidence intervals, and paired Wilcoxon "
+        "signed-rank tests adjusted via Holm family-wise error correction.")
+
+    add_heading_2(doc, "D. Operational Step Counter Instrumentation")
+    add_paragraph(doc, 
+        "To isolate fundamental algorithmic work from OS scheduling jitter and hardware dynamic frequency scaling, we constructed an instrumented binary "
+        "wrapper tracking exact element comparisons and swaps per element (C/N and S/N) across every trial execution.")
+
+    # Section V: Results
+    add_heading_1(doc, "V. RESULTS & DISCUSSION")
+    add_heading_2(doc, "A. RQ1 Evaluation: Cross-Workload Performance & Comparative Matrix")
     add_paragraph(doc, 
         "Table II details the empirical execution times (median across 30 independent runs) for N = 100,000 32-bit integers across all 9 primary baselines.")
 
@@ -326,11 +391,14 @@ def build_paper2():
     add_figure(doc, "papers/paper2_adversarial_benchmarking/speedup_overview_all_workloads_n100000.png",
                "Fig. 3. Empirical speedup of Enesort relative to std::sort across all 20 workloads at N = 100,000.", 5.8)
 
-    # Section IV
-    add_heading_1(doc, "IV. OPERATIONAL STEP COUNTER PROFILING & ENERGY IMPLICATIONS")
+    add_heading_2(doc, "B. RQ2 Evaluation: Adversarial Robustness & Pathological Resilience")
     add_paragraph(doc, 
-        "Wall-clock runtime combines algorithmic complexity, memory latency, and OS scheduling jitter. To evaluate fundamental algorithmic work "
-        "and its direct impact on computational energy dissipation (El Outmani et al. [12], Yang [11]), we tracked exact comparisons and swaps per element.")
+        "On the median_of_3_killer sequence (N = 100,000), Enesort executes in 0.716 ms, achieving a 2.08x speedup over std::sort (1.487 ms) and an 8.70x "
+        "speedup over heapsort (6.229 ms). Introspective depth-limit monitoring (2*floor(log2 N)) successfully neutralizes quadratic attack vectors.")
+
+    add_heading_2(doc, "C. RQ3 Evaluation: Operational Step Complexity Analysis")
+    add_paragraph(doc, 
+        "Table III and Fig. 4 report exact comparisons and swaps per element (C/N and S/N) measured via the instrumented counter harness.")
 
     headers_cnt = ["Workload (N=100k)", "Enesort Cmps / Elem", "Enesort Swaps / Elem", "std::sort Cmps / Elem", "Theoretical Optimality Note"]
     rows_cnt = [
@@ -345,21 +413,20 @@ def build_paper2():
               headers_cnt, rows_cnt, [1.5, 1.3, 1.3, 1.3, 2.0])
 
     add_figure(doc, "papers/paper2_adversarial_benchmarking/counter_study_per_element.png",
-               "Fig. 4. Exact comparison and swap step counts per element across workloads, verifying linear complexity on presorted data.", 5.8)
+               "Fig. 4. Exact comparison and swap step counts per element across workloads, verifying linear complexity on presorted and duplicate data.", 5.8)
 
-    # Section V
-    add_heading_1(doc, "V. MICROARCHITECTURAL TRADEOFFS & PARETO EFFICIENCY")
+    add_heading_2(doc, "D. RQ4 Evaluation: Microarchitecture, Memory Footprint & Pareto Trade-offs")
     add_paragraph(doc, 
-        "A critical metric frequently overlooked in green software engineering (Roy et al. [23], Lano et al. [14]) is dynamic heap allocation. "
-        "Dynamic memory allocations consume energy through page table allocations, kernel context switches, and cache pollution. Fig. 5 shows the "
-        "Pareto efficiency between execution latency and auxiliary dynamic heap memory.")
+        "A critical metric frequently overlooked in green software engineering is dynamic heap allocation. Dynamic memory allocations consume energy "
+        "through page table allocations, kernel context switches, and cache pollution. Fig. 5 shows the Pareto efficiency between execution latency and "
+        "auxiliary dynamic heap memory.")
 
     add_figure(doc, "papers/paper2_adversarial_benchmarking/runtime_vs_memory_pareto_n100000.png",
                "Fig. 5. Pareto efficiency: Execution time vs auxiliary dynamic heap footprint on uniform_random and organ_pipe inputs.", 6.2)
 
-    add_heading_2(doc, "A. Transparent Loss Analysis")
+    add_heading_2(doc, "E. Transparent Loss Analysis & Asymmetric Trade-offs")
     add_paragraph(doc, 
-        "In compliance with scientific rigor (Bylina et al. [13], Jiménez et al. [6]), we report all workloads where Enesort is outperformed by >5%:\n"
+        "Transparent Loss Analysis:\n"
         "1) sorted_append_100: TimSort (0.601 ms) and MergeSort (0.557 ms) outperform Enesort (1.856 ms). TimSort identifies the large existing monotonic "
         "run and performs a linear merge with the appended 100 elements. However, TimSort allocates 400 KB of auxiliary dynamic heap buffer, whereas "
         "Enesort operates strictly in-place with 0 bytes of dynamic heap memory.\n"
@@ -369,12 +436,32 @@ def build_paper2():
     add_figure(doc, "papers/paper2_adversarial_benchmarking/speedup_vs_pdqsort_n100000.png",
                "Fig. 6. Speedup ratio of Enesort relative to pdqsort (the state-of-the-art C++ quicksort) across all 20 workloads.", 5.8)
 
-    # Section VI
-    add_heading_1(doc, "VI. CONCLUSION")
+    # Section VI: System Engineering Guidelines
+    add_heading_1(doc, "VI. SYSTEM ENGINEERING GUIDELINES FOR SUSTAINABLE SOFTWARE DESIGN")
     add_paragraph(doc, 
-        "This empirical study demonstrates that Enesort successfully unifies high-throughput dual-pivot quicksort with robust algorithmic sustainability. "
-        "By eliminating quadratic failure modes, bounding call-stack depth to <= 2*floor(log2 N), and operating strictly in-place with 0 bytes of dynamic "
-        "heap space, Enesort delivers predictable, energy-efficient performance across synthetic, structural, and adversarial inputs.")
+        "Grounded in recent sustainability taxonomies (Roy et al. [23], Lano et al. [14], Devadas & T [21]) and microarchitectural energy profiling "
+        "(El Outmani et al. [12], Yang [11]), we synthesize four core design guidelines for system architects:\n"
+        "1) General In-Place Sorting without Memory Overhead: When auxiliary dynamic memory allocations must be strictly prohibited (O(1) auxiliary heap) "
+        "and bounded stack footprint is required for energy-constrained or safety-critical firmware (e.g., IoT edge devices, embedded controllers, operating "
+        "system kernels) [10], hybrid dual-pivot algorithms with depth-limit fallbacks (Enesort) provide superior energy-delay efficiency over classical quicksorts.\n"
+        "2) Run-Rich Workloads with Ample Memory: When input data consists of concatenated time-series logs or append-heavy database tables and memory overhead "
+        "is non-critical, adaptive merge algorithms (TimSort [9]) remain optimal due to their linear-time run exploitation. However, architects must account "
+        "for the substantial dynamic memory allocation overhead (400 KB per 10^5 elements) and resulting cache pollution.\n"
+        "3) Duplicate-Heavy & Adversarial Scenarios: When sorting keys with low cardinality (e.g., database foreign keys, categorical flags) or where user input "
+        "may be untrusted, fat equal-key partitioning and median-of-5 sampling provide decisive insulation against O(N^2) algorithmic denial-of-service degradation "
+        "and catastrophic thermal dissipation.\n"
+        "4) Compiler and Runtime Co-Design: Consistent with findings by Bylina et al. [13] and Jiménez et al. [6], compiler optimization levels (e.g., -O3 -march=native) "
+        "interact strongly with partitioning loops; instruction unrolling and auto-vectorization amplify the throughput advantages of branch-reduced hybrid quicksorts.")
+
+    # Section VII: Conclusion
+    add_heading_1(doc, "VII. CONCLUSION")
+    add_paragraph(doc, 
+        "This empirical study presented an exhaustive benchmark of ten modern sorting paradigms across 20 deterministic workloads, four data representations, "
+        "and scaling orders up to N=10^6. By addressing four distinct research questions (RQ1--RQ4) through paired Wilcoxon signed-rank testing, bootstrap "
+        "confidence intervals, and exact operational step counters, we established the performance, microarchitectural, and memory boundaries between in-place "
+        "dual-pivot partitioning and adaptive run-merging. While adaptive merge routines excel on run-rich arrays when memory is abundant, in-place hybrid "
+        "algorithms like Enesort provide optimal duplicate-key convergence, robust defense against killer permutations, and bounded stack safety with zero "
+        "auxiliary heap allocation, establishing an energy-efficient primitive for modern sustainable software engineering.")
 
     # References
     add_heading_1(doc, "REFERENCES")
@@ -421,8 +508,12 @@ def build_paper2():
         doc.save(out_path)
         print(f"Saved rewritten Paper 2 Word manuscript to {out_path}")
     except PermissionError:
+        print(f"Could not write to {out_path} (locked). Writing to alternate...")
+    try:
         doc.save(out_path_alt)
-        print(f"Original file was open in Word. Saved rewritten Paper 2 Word manuscript to {out_path_alt}")
+        print(f"Saved rewritten Paper 2 Word manuscript to {out_path_alt}")
+    except PermissionError:
+        print(f"Could not write to {out_path_alt} (locked).")
 
 if __name__ == '__main__':
     build_paper2()
