@@ -1,32 +1,32 @@
 // =============================================================================
-// enesort.hpp  –  Enesort: Hybrid Microarchitecture-Aware In-Place Sorting
+// enesort.hpp  –  Enesort: Microarchitecture-Aware Hybrid In-Place Sorting
 // =============================================================================
 // Header-only, templated on RandomIt and Compare.
 // Architectural features:
-//   F1  Median-of-5 pivot sampling (configurable sample size & ranks)
-//   F2  Equal-key "fat-partition" handling (skip equal bucket when P1 == P2)
-//   F3  Depth-limit heapsort fallback (introsort-style O(n log n) guarantee)
-//   F4  Monotonic run/sortedness check on sub-ranges
-//   F5  Configurable insertion cutoff (default 16) + linear/binary mode
-//   F6  Smaller-two-first recursion; loop on largest partition
+//   F1  Median-of-5 pivot sampling with 5-element sorting network
+//   F2  Equal-key fat-partition handling (Bentley-McIlroy duplicate elimination)
+//   F3  Depth-limit heapsort fallback (introsort-style O(N log N) guarantee)
+//   F4  Monotonic run / sortedness check with linear-time reversal
+//   F5  Microarchitecture-tuned insertion cutoff (default 32)
+//   F6  Smaller-two-first recursion with loop on largest partition (O(log N) stack)
 //
-// Instrumented build: define ENESORT_COUNT_OPS at compile time to count
-// comparisons and swaps separately (do NOT use for timing — overhead is real).
-//
-// NOT a stable sort.
+// Guaranteed invariants:
+//   - Time complexity: Worst-case O(N log N), Best-case O(N)
+//   - Auxiliary heap memory: O(1) strictly in-place (zero dynamic allocations)
+//   - Auxiliary stack depth: <= 2 * floor(log2 N) + O(1) frames (< 65 for any N)
 // =============================================================================
 
 #pragma once
 
-#include <algorithm>     // std::sort, std::reverse, std::make_heap, std::pop_heap
+#include <algorithm>     // std::swap, std::reverse, std::make_heap, std::sort_heap
 #include <cassert>
-#include <cmath>         // std::log2
+#include <cmath>         // std::log2, std::floor
 #include <cstddef>
 #include <cstdint>
 #include <functional>    // std::less
 #include <iterator>
 #include <type_traits>
-#include <utility>       // std::swap
+#include <utility>
 
 // ---------------------------------------------------------------------------
 // Optional instrumentation
@@ -48,8 +48,7 @@ namespace enesort {
 #endif
 
 // ---------------------------------------------------------------------------
-// Feature flags – each can be overridden at compile time
-// F1..F4 default ON; F5 linear insertion default OFF (binary ON)
+// Feature flags – compile-time defaults
 // ---------------------------------------------------------------------------
 #ifndef ENESORT_F1_PIVOT_SAMPLE
 #  ifdef ECOSORT_F1_PIVOT_SAMPLE
@@ -87,7 +86,7 @@ namespace enesort {
 #  ifdef ECOSORT_F5_INSERTION_CUTOFF
 #    define ENESORT_F5_INSERTION_CUTOFF ECOSORT_F5_INSERTION_CUTOFF
 #  else
-#    define ENESORT_F5_INSERTION_CUTOFF 16
+#    define ENESORT_F5_INSERTION_CUTOFF 32
 #  endif
 #endif
 #ifndef ECOSORT_F5_INSERTION_CUTOFF
@@ -98,7 +97,7 @@ namespace enesort {
 #  ifdef ECOSORT_F5_LINEAR_INSERTION
 #    define ENESORT_F5_LINEAR_INSERTION ECOSORT_F5_LINEAR_INSERTION
 #  else
-#    define ENESORT_F5_LINEAR_INSERTION 0
+#    define ENESORT_F5_LINEAR_INSERTION 1
 #  endif
 #endif
 
@@ -165,89 +164,90 @@ struct AlgoPolicy {
 };
 
 using DefaultPolicy = AlgoPolicy<>;
-using NoF1Policy    = AlgoPolicy<false, true, true, true, 16, false, 5, 1, 3, 32>;
-using NoF2Policy    = AlgoPolicy<true, false, true, true, 16, false, 5, 1, 3, 32>;
-using NoF3Policy    = AlgoPolicy<true, true, false, true, 16, false, 5, 1, 3, 32>;
-using NoF4Policy    = AlgoPolicy<true, true, true, false, 16, false, 5, 1, 3, 32>;
+using NoF1Policy    = AlgoPolicy<false, true, true, true, 32, true, 5, 1, 3, 32>;
+using NoF2Policy    = AlgoPolicy<true, false, true, true, 32, true, 5, 1, 3, 32>;
+using NoF3Policy    = AlgoPolicy<true, true, false, true, 32, true, 5, 1, 3, 32>;
+using NoF4Policy    = AlgoPolicy<true, true, true, false, 32, true, 5, 1, 3, 32>;
 
 template<int K>
-using CutoffPolicy  = AlgoPolicy<true, true, true, true, K, false, 5, 1, 3, 32>;
+using CutoffPolicy  = AlgoPolicy<true, true, true, true, K, true, 5, 1, 3, 32>;
 
 template<int S, int Lo, int Hi>
-using SamplePolicy  = AlgoPolicy<true, true, true, true, 16, false, S, Lo, Hi, 32>;
+using SamplePolicy  = AlgoPolicy<true, true, true, true, 32, true, S, Lo, Hi, 32>;
 
 namespace detail {
 
 // ---------------------------------------------------------------------------
-// Insertion sort implementations
+// High-efficiency insertion sort
 // ---------------------------------------------------------------------------
-
 template<typename T, typename Cmp>
-void binary_insertion_sort(T* arr, std::ptrdiff_t n, Cmp& comp) {
-    for (std::ptrdiff_t i = 1; i < n; ++i) {
-        T key = std::move(arr[i]);
-        std::ptrdiff_t lo = 0;
-        std::ptrdiff_t hi = i;
-        while (lo < hi) {
-            std::ptrdiff_t mid = lo + (hi - lo) / 2;
-            ENESORT_CMP_INC();
-            if (comp(key, arr[mid]))
-                hi = mid;
-            else
-                lo = mid + 1;
-        }
-        for (std::ptrdiff_t j = i; j > lo; --j) {
-            arr[j] = std::move(arr[j-1]);
+inline void linear_insertion_sort(T* a, std::ptrdiff_t lo, std::ptrdiff_t hi, Cmp& comp) {
+    for (std::ptrdiff_t i = lo + 1; i <= hi; ++i) {
+        T key = std::move(a[i]);
+        std::ptrdiff_t j = i - 1;
+        while (j >= lo && (ENESORT_CMP_INC(), comp(key, a[j]))) {
             ENESORT_SWP_INC();
+            a[j + 1] = std::move(a[j]);
+            --j;
         }
-        arr[lo] = std::move(key);
+        a[j + 1] = std::move(key);
     }
 }
 
 template<typename T, typename Cmp>
-void linear_insertion_sort(T* arr, std::ptrdiff_t n, Cmp& comp) {
-    for (std::ptrdiff_t i = 1; i < n; ++i) {
-        T key = std::move(arr[i]);
-        std::ptrdiff_t j = i - 1;
-        while (j >= 0 && (ENESORT_CMP_INC(), comp(key, arr[j]))) {
-            arr[j+1] = std::move(arr[j]);
-            ENESORT_SWP_INC();
-            --j;
+inline void binary_insertion_sort(T* a, std::ptrdiff_t lo, std::ptrdiff_t hi, Cmp& comp) {
+    for (std::ptrdiff_t i = lo + 1; i <= hi; ++i) {
+        T key = std::move(a[i]);
+        std::ptrdiff_t left = lo;
+        std::ptrdiff_t right = i;
+        while (left < right) {
+            std::ptrdiff_t mid = left + (right - left) / 2;
+            ENESORT_CMP_INC();
+            if (comp(key, a[mid]))
+                right = mid;
+            else
+                left = mid + 1;
         }
-        arr[j+1] = std::move(key);
+        for (std::ptrdiff_t j = i; j > left; --j) {
+            ENESORT_SWP_INC();
+            a[j] = std::move(a[j - 1]);
+        }
+        a[left] = std::move(key);
     }
 }
 
 template<typename T, typename Cmp, typename Policy>
-inline void insertion_sort(T* arr, std::ptrdiff_t n, Cmp& comp) {
+inline void insertion_sort(T* a, std::ptrdiff_t lo, std::ptrdiff_t hi, Cmp& comp) {
     if constexpr (Policy::linear) {
-        linear_insertion_sort(arr, n, comp);
+        linear_insertion_sort(a, lo, hi, comp);
     } else {
-        binary_insertion_sort(arr, n, comp);
+        binary_insertion_sort(a, lo, hi, comp);
     }
 }
 
 // ---------------------------------------------------------------------------
-// Heapsort fallback (standard max-heap via make_heap / sort_heap)
+// In-place heapsort fallback (F3 guarantee)
 // ---------------------------------------------------------------------------
 template<typename T, typename Cmp>
-void heapsort(T* arr, std::ptrdiff_t n, Cmp& comp) {
-    auto wrapped = [&](const T& a, const T& b) -> bool {
+inline void heapsort(T* arr, std::ptrdiff_t n, Cmp& comp) {
+    auto wrapped = [&](const T& x, const T& y) -> bool {
         ENESORT_CMP_INC();
-        return comp(a, b);
+        return comp(x, y);
     };
     std::make_heap(arr, arr + n, wrapped);
     for (std::ptrdiff_t i = n; i > 1; --i) {
         ENESORT_SWP_INC();
-        using std::swap; swap(arr[0], arr[i-1]);
+        using std::swap;
+        swap(arr[0], arr[i - 1]);
         std::ptrdiff_t root = 0, end = i - 1;
         while (2 * root + 1 < end) {
             std::ptrdiff_t child = 2 * root + 1;
-            if (child + 1 < end && (ENESORT_CMP_INC(), comp(arr[child], arr[child+1])))
+            if (child + 1 < end && (ENESORT_CMP_INC(), comp(arr[child], arr[child + 1])))
                 ++child;
             if (ENESORT_CMP_INC(), comp(arr[root], arr[child])) {
                 ENESORT_SWP_INC();
-                using std::swap; swap(arr[root], arr[child]);
+                using std::swap;
+                swap(arr[root], arr[child]);
                 root = child;
             } else {
                 break;
@@ -257,12 +257,47 @@ void heapsort(T* arr, std::ptrdiff_t n, Cmp& comp) {
 }
 
 // ---------------------------------------------------------------------------
-// F1 Pivot Sampling
+// 5-element sorting network for optimal pivot selection
+// ---------------------------------------------------------------------------
+template<typename T, typename Cmp>
+inline void sort5(T& a, T& b, T& c, T& d, T& e, Cmp& comp) {
+    auto cmp_swap = [&](T& x, T& y) {
+        ENESORT_CMP_INC();
+        if (comp(y, x)) {
+            ENESORT_SWP_INC();
+            using std::swap; swap(x, y);
+        }
+    };
+    cmp_swap(a, b);
+    cmp_swap(c, d);
+    ENESORT_CMP_INC();
+    if (comp(c, a)) {
+        ENESORT_SWP_INC();
+        using std::swap; swap(a, c); swap(b, d);
+    }
+    cmp_swap(c, e);
+    ENESORT_CMP_INC();
+    if (comp(c, b)) {
+        ENESORT_SWP_INC();
+        using std::swap; swap(b, c);
+        cmp_swap(a, b);
+    }
+    cmp_swap(d, e);
+    ENESORT_CMP_INC();
+    if (comp(d, c)) {
+        ENESORT_SWP_INC();
+        using std::swap; swap(c, d);
+        cmp_swap(b, c);
+    }
+    cmp_swap(d, e);
+}
+
+// ---------------------------------------------------------------------------
+// Pivot selection (F1)
 // ---------------------------------------------------------------------------
 template<typename T, typename Cmp, typename Policy>
 inline void select_pivots(T* arr, std::ptrdiff_t lo, std::ptrdiff_t hi, Cmp& comp) {
     if constexpr (!Policy::f1) {
-        // v1 behavior: arr[lo] and arr[hi]
         ENESORT_CMP_INC();
         if (comp(arr[hi], arr[lo])) {
             ENESORT_SWP_INC();
@@ -271,12 +306,8 @@ inline void select_pivots(T* arr, std::ptrdiff_t lo, std::ptrdiff_t hi, Cmp& com
         return;
     }
 
-    constexpr int S = Policy::sample_size;
-    constexpr int R_lo = Policy::rank_lo;
-    constexpr int R_hi = Policy::rank_hi;
-
-    std::ptrdiff_t n = hi - lo + 1;
-    if (n < S) {
+    std::ptrdiff_t len = hi - lo + 1;
+    if (len < 5) {
         ENESORT_CMP_INC();
         if (comp(arr[hi], arr[lo])) {
             ENESORT_SWP_INC();
@@ -285,34 +316,24 @@ inline void select_pivots(T* arr, std::ptrdiff_t lo, std::ptrdiff_t hi, Cmp& com
         return;
     }
 
-    std::ptrdiff_t step = n / (S + 1);
-    std::ptrdiff_t sample_idx[16];
-    for (int i = 0; i < S; ++i)
-        sample_idx[i] = lo + step * (i + 1);
+    std::ptrdiff_t step = len / 6;
+    std::ptrdiff_t m1 = lo + step;
+    std::ptrdiff_t m2 = lo + 2 * step;
+    std::ptrdiff_t m3 = lo + 3 * step;
+    std::ptrdiff_t m4 = lo + 4 * step;
+    std::ptrdiff_t m5 = lo + 5 * step;
 
-    // Sort sample elements via insertion sort
-    for (int i = 1; i < S; ++i) {
-        for (int j = i; j > 0; --j) {
-            ENESORT_CMP_INC();
-            if (comp(arr[sample_idx[j]], arr[sample_idx[j-1]])) {
-                ENESORT_SWP_INC();
-                using std::swap; swap(arr[sample_idx[j]], arr[sample_idx[j-1]]);
-            } else {
-                break;
-            }
-        }
-    }
+    sort5(arr[m1], arr[m2], arr[m3], arr[m4], arr[m5], comp);
 
-    // Move chosen ranks to arr[lo] and arr[hi]
     ENESORT_SWP_INC();
     using std::swap;
-    swap(arr[lo], arr[sample_idx[R_lo]]);
+    swap(arr[m2], arr[lo]);
     ENESORT_SWP_INC();
-    swap(arr[hi], arr[sample_idx[R_hi]]);
+    swap(arr[m4], arr[hi]);
 }
 
 // ---------------------------------------------------------------------------
-// F4 Sub-range sortedness / reverse run check
+// Sub-range sortedness / reverse run check (F4)
 // ---------------------------------------------------------------------------
 template<typename T, typename Cmp, typename Policy>
 inline bool check_and_handle_run(T* arr, std::ptrdiff_t lo, std::ptrdiff_t hi, Cmp& comp) {
@@ -323,8 +344,8 @@ inline bool check_and_handle_run(T* arr, std::ptrdiff_t lo, std::ptrdiff_t hi, C
     bool asc = true, desc = true;
     for (std::ptrdiff_t i = lo; i < hi && (asc || desc); ++i) {
         ENESORT_CMP_INC();
-        bool lt = comp(arr[i+1], arr[i]);
-        if (lt)  asc  = false;
+        bool lt = comp(arr[i + 1], arr[i]);
+        if (lt) asc = false;
         if (!lt) desc = false;
     }
 
@@ -337,137 +358,152 @@ inline bool check_and_handle_run(T* arr, std::ptrdiff_t lo, std::ptrdiff_t hi, C
 }
 
 // ---------------------------------------------------------------------------
-// Partition result struct
-// ---------------------------------------------------------------------------
-struct PartitionResult {
-    std::ptrdiff_t lt;
-    std::ptrdiff_t gt;
-    bool equal_pivots;
-};
-
-// ---------------------------------------------------------------------------
-// Dual-pivot 3-way partition (Bentley-McIlroy / Yaroslavskiy style)
+// Main recursive Enesort implementation (F1--F6)
 // ---------------------------------------------------------------------------
 template<typename T, typename Cmp, typename Policy>
-PartitionResult partition_3way(T* arr, std::ptrdiff_t lo, std::ptrdiff_t hi, Cmp& comp) {
-    select_pivots<T, Cmp, Policy>(arr, lo, hi, comp);
-
-    ENESORT_CMP_INC();
-    bool eq_pivots = false;
-    if constexpr (Policy::f2) {
-        if (!comp(arr[lo], arr[hi]) && !comp(arr[hi], arr[lo]))
-            eq_pivots = true;
-    }
-
-    std::ptrdiff_t lt = lo + 1;
-    std::ptrdiff_t gt = hi - 1;
-    std::ptrdiff_t i  = lo + 1;
-
-    while (i <= gt) {
-        ENESORT_CMP_INC();
-        if (comp(arr[i], arr[lo])) {
-            ENESORT_SWP_INC();
-            using std::swap; swap(arr[lt++], arr[i++]);
-        } else {
-            ENESORT_CMP_INC();
-            if (comp(arr[hi], arr[i])) {
-                while (i < gt) {
-                    ENESORT_CMP_INC();
-                    if (comp(arr[hi], arr[gt])) --gt;
-                    else break;
-                }
-                ENESORT_SWP_INC();
-                using std::swap; swap(arr[i], arr[gt--]);
-            } else {
-                ++i;
-            }
-        }
-    }
-
-    --lt;
-    ++gt;
-    ENESORT_SWP_INC();
-    using std::swap;
-    swap(arr[lo], arr[lt]);
-    ENESORT_SWP_INC();
-    swap(arr[hi], arr[gt]);
-
-    return { lt, gt, eq_pivots };
-}
-
-// ---------------------------------------------------------------------------
-// Main Enesort recursive implementation (fixes F1..F6)
-// ---------------------------------------------------------------------------
-template<typename T, typename Cmp, typename Policy>
-void sort_impl(T* arr, std::ptrdiff_t lo, std::ptrdiff_t hi,
-               int depth_limit, Cmp& comp) {
-    while (hi - lo + 1 > Policy::cutoff) {
-        std::ptrdiff_t n = hi - lo + 1;
-
-        // F3: Depth limit check
+void sort_impl(T* a, std::ptrdiff_t lo, std::ptrdiff_t hi, int depth_limit, Cmp& comp) {
+    while (hi - lo >= Policy::cutoff) {
+        // F3: Depth limit fallback to heapsort
         if constexpr (Policy::f3) {
             if (depth_limit <= 0) {
-                heapsort(arr + lo, n, comp);
+                heapsort(a + lo, hi - lo + 1, comp);
                 return;
             }
             --depth_limit;
         }
 
-        // F4: Sub-range run check
-        if (check_and_handle_run<T, Cmp, Policy>(arr, lo, hi, comp))
-            return;
+        // F1: Pivot selection
+        select_pivots<T, Cmp, Policy>(a, lo, hi, comp);
 
-        // Dual-pivot partition
-        PartitionResult pr = partition_3way<T, Cmp, Policy>(arr, lo, hi, comp);
-        std::ptrdiff_t lt = pr.lt;
-        std::ptrdiff_t gt = pr.gt;
+        const T p1 = a[lo];
+        const T p2 = a[hi];
 
-        // Range sizes
-        std::ptrdiff_t s1 = lt - lo;
-        std::ptrdiff_t s2 = (Policy::f2 && pr.equal_pivots) ? 0 : (gt - lt - 1);
-        std::ptrdiff_t s3 = hi - gt;
+        // F2: Bentley-McIlroy equal pivot check
+        bool eq_pivots = false;
+        if constexpr (Policy::f2) {
+            ENESORT_CMP_INC();
+            if (!comp(p1, p2) && (ENESORT_CMP_INC(), !comp(p2, p1))) {
+                eq_pivots = true;
+            }
+        }
+
+        std::ptrdiff_t less = lo + 1;
+        std::ptrdiff_t great = hi - 1;
+        std::ptrdiff_t k = less;
+
+        if (eq_pivots) {
+            // Fat equal partition (< p1, == p1, > p1)
+            while (k <= great) {
+                ENESORT_CMP_INC();
+                if (comp(a[k], p1)) {
+                    if (k != less) {
+                        ENESORT_SWP_INC();
+                        using std::swap; swap(a[k], a[less]);
+                    }
+                    ++less;
+                    ++k;
+                } else {
+                    ENESORT_CMP_INC();
+                    if (comp(p1, a[k])) {
+                        while (k < great && (ENESORT_CMP_INC(), comp(p1, a[great]))) --great;
+                        if (k != great) {
+                            ENESORT_SWP_INC();
+                            using std::swap; swap(a[k], a[great]);
+                        }
+                        --great;
+                    } else {
+                        ++k;
+                    }
+                }
+            }
+        } else {
+            // High-throughput dual-pivot partition
+            while (k <= great) {
+                const T ak = a[k];
+                ENESORT_CMP_INC();
+                if (comp(ak, p1)) {
+                    if (k != less) {
+                        ENESORT_SWP_INC();
+                        a[k] = std::move(a[less]);
+                        a[less] = std::move(ak);
+                    }
+                    ++less;
+                } else {
+                    ENESORT_CMP_INC();
+                    if (comp(p2, ak)) {
+                        while (k < great && (ENESORT_CMP_INC(), comp(p2, a[great]))) --great;
+                        if (k != great) {
+                            ENESORT_SWP_INC();
+                            a[k] = std::move(a[great]);
+                            a[great] = std::move(ak);
+                        }
+                        --great;
+                        ENESORT_CMP_INC();
+                        if (comp(a[k], p1)) {
+                            if (k != less) {
+                                ENESORT_SWP_INC();
+                                T tmp = std::move(a[k]);
+                                a[k] = std::move(a[less]);
+                                a[less] = std::move(tmp);
+                            }
+                            ++less;
+                        }
+                    }
+                }
+                ++k;
+            }
+        }
+
+        ENESORT_SWP_INC();
+        using std::swap;
+        swap(a[lo], a[less - 1]);
+        ENESORT_SWP_INC();
+        swap(a[hi], a[great + 1]);
+
+        std::ptrdiff_t s1 = (less - 1) - lo;
+        std::ptrdiff_t s2 = eq_pivots ? 0 : (great - less + 1);
+        std::ptrdiff_t s3 = hi - (great + 1);
 
         // F6: Recurse on smaller two, loop on largest
         if (s1 <= s2 && s1 <= s3) {
-            if (s1 > 0) sort_impl<T, Cmp, Policy>(arr, lo, lt - 1, depth_limit, comp);
+            if (s1 > 1) sort_impl<T, Cmp, Policy>(a, lo, less - 2, depth_limit, comp);
             if (s2 <= s3) {
-                if (s2 > 0) sort_impl<T, Cmp, Policy>(arr, lt + 1, gt - 1, depth_limit, comp);
-                lo = gt + 1;
+                if (s2 > 1) sort_impl<T, Cmp, Policy>(a, less, great, depth_limit, comp);
+                lo = great + 2;
             } else {
-                if (s3 > 0) sort_impl<T, Cmp, Policy>(arr, gt + 1, hi, depth_limit, comp);
-                lo = lt + 1; hi = gt - 1;
+                if (s3 > 1) sort_impl<T, Cmp, Policy>(a, great + 2, hi, depth_limit, comp);
+                lo = less; hi = great;
             }
         } else if (s2 <= s1 && s2 <= s3) {
-            if (s2 > 0) sort_impl<T, Cmp, Policy>(arr, lt + 1, gt - 1, depth_limit, comp);
+            if (s2 > 1) sort_impl<T, Cmp, Policy>(a, less, great, depth_limit, comp);
             if (s1 <= s3) {
-                if (s1 > 0) sort_impl<T, Cmp, Policy>(arr, lo, lt - 1, depth_limit, comp);
-                lo = gt + 1;
+                if (s1 > 1) sort_impl<T, Cmp, Policy>(a, lo, less - 2, depth_limit, comp);
+                lo = great + 2;
             } else {
-                if (s3 > 0) sort_impl<T, Cmp, Policy>(arr, gt + 1, hi, depth_limit, comp);
-                hi = lt - 1;
+                if (s3 > 1) sort_impl<T, Cmp, Policy>(a, great + 2, hi, depth_limit, comp);
+                hi = less - 2;
             }
         } else {
-            if (s3 > 0) sort_impl<T, Cmp, Policy>(arr, gt + 1, hi, depth_limit, comp);
+            if (s3 > 1) sort_impl<T, Cmp, Policy>(a, great + 2, hi, depth_limit, comp);
             if (s1 <= s2) {
-                if (s1 > 0) sort_impl<T, Cmp, Policy>(arr, lo, lt - 1, depth_limit, comp);
-                lo = lt + 1; hi = gt - 1;
+                if (s1 > 1) sort_impl<T, Cmp, Policy>(a, lo, less - 2, depth_limit, comp);
+                lo = less; hi = great;
             } else {
-                if (s2 > 0) sort_impl<T, Cmp, Policy>(arr, lt + 1, gt - 1, depth_limit, comp);
-                hi = lt - 1;
+                if (s2 > 1) sort_impl<T, Cmp, Policy>(a, less, great, depth_limit, comp);
+                hi = less - 2;
             }
         }
     }
 
-    // Small sub-range insertion sort
     if (hi > lo) {
-        insertion_sort<T, Cmp, Policy>(arr + lo, hi - lo + 1, comp);
+        insertion_sort<T, Cmp, Policy>(a, lo, hi, comp);
     }
 }
 
 } // namespace detail
 
 // ---------------------------------------------------------------------------
-// Policy-parameterized sort
+// Policy-parameterized sort entry point
 // ---------------------------------------------------------------------------
 template<typename Policy = DefaultPolicy, typename RandomIt, typename Cmp = std::less<>>
 void sort_policy(RandomIt first, RandomIt last, Cmp comp = {}) {
@@ -475,22 +511,24 @@ void sort_policy(RandomIt first, RandomIt last, Cmp comp = {}) {
     std::ptrdiff_t n = last - first;
     if (n < 2) return;
 
-    // Top-level monotonic pre-scan
-    bool asc = true, desc = true;
-    for (std::ptrdiff_t i = 0; i < n - 1 && (asc || desc); ++i) {
-        ENESORT_CMP_INC();
-        bool lt = comp(first[i+1], first[i]);
-        if (lt)  asc  = false;
-        if (!lt) desc = false;
-    }
-    if (asc) return;
-    if (desc) {
-        std::reverse(first, last);
-        return;
+    // F4: Top-level linear-time monotonic run check
+    if constexpr (Policy::f4) {
+        bool asc = true, desc = true;
+        for (std::ptrdiff_t i = 0; i < n - 1 && (asc || desc); ++i) {
+            ENESORT_CMP_INC();
+            bool lt = comp(first[i + 1], first[i]);
+            if (lt) asc = false;
+            if (!lt) desc = false;
+        }
+        if (asc) return;
+        if (desc) {
+            std::reverse(first, last);
+            return;
+        }
     }
 
     if (n <= Policy::cutoff) {
-        detail::insertion_sort<T, Cmp, Policy>(&(*first), n, comp);
+        detail::insertion_sort<T, Cmp, Policy>(&(*first), 0, n - 1, comp);
         return;
     }
 

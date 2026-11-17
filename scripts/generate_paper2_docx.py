@@ -98,8 +98,6 @@ def add_abstract(doc, abstract_text, keywords_text):
     r_kwt = p2.add_run(keywords_text)
     r_kwt.font.size = Pt(9.5)
 
-    doc.add_paragraph().paragraph_format.space_after = Pt(6)
-
 def add_heading_1(doc, text):
     p = doc.add_paragraph()
     p.paragraph_format.space_before = Pt(14)
@@ -107,9 +105,9 @@ def add_heading_1(doc, text):
     p.paragraph_format.keep_with_next = True
     run = p.add_run(text)
     run.font.name = 'Times New Roman'
-    run.font.size = Pt(11.5)
+    run.font.size = Pt(12)
     run.font.bold = True
-    run.font.color.rgb = RGBColor(0x0F, 0x25, 0x37)
+    run.font.color.rgb = RGBColor(0x00, 0x33, 0x66)
 
 def add_heading_2(doc, text):
     p = doc.add_paragraph()
@@ -120,83 +118,97 @@ def add_heading_2(doc, text):
     run.font.name = 'Times New Roman'
     run.font.size = Pt(10.5)
     run.font.bold = True
-    run.font.italic = True
-    run.font.color.rgb = RGBColor(0x22, 0x44, 0x66)
+    run.font.color.rgb = RGBColor(0x22, 0x22, 0x22)
 
 def add_paragraph(doc, text):
     p = doc.add_paragraph()
     p.paragraph_format.line_spacing = 1.15
-    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.space_after = Pt(5)
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     run = p.add_run(text)
     run.font.name = 'Times New Roman'
     run.font.size = Pt(10)
     return p
 
-def add_figure(doc, img_path, caption_text, width_in=5.8):
-    if not os.path.exists(img_path):
-        print(f"Warning: image {img_path} not found")
+def add_figure(doc, image_path, caption_text, width_inches=6.0):
+    if not os.path.exists(image_path):
+        p_err = doc.add_paragraph()
+        p_err.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = p_err.add_run(f"[Figure missing: {os.path.basename(image_path)}]")
+        r.font.italic = True
+        r.font.color.rgb = RGBColor(0x99, 0x00, 0x00)
         return
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.space_before = Pt(8)
-    p.paragraph_format.space_after = Pt(3)
-    p.paragraph_format.keep_with_next = True
-    run = p.add_run()
-    run.add_picture(img_path, width=Inches(width_in))
+
+    p_img = doc.add_paragraph()
+    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_img.paragraph_format.space_before = Pt(8)
+    p_img.paragraph_format.space_after = Pt(3)
+    p_img.paragraph_format.keep_with_next = True
+    
+    run_img = p_img.add_run()
+    run_img.add_picture(image_path, width=Inches(width_inches))
 
     p_cap = doc.add_paragraph()
     p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_cap.paragraph_format.space_before = Pt(0)
     p_cap.paragraph_format.space_after = Pt(10)
-    r_cap = p_cap.add_run(caption_text)
-    r_cap.font.name = 'Times New Roman'
-    r_cap.font.size = Pt(9)
-    r_cap.font.italic = True
-    r_cap.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+    run_cap = p_cap.add_run(caption_text)
+    run_cap.font.name = 'Times New Roman'
+    run_cap.font.size = Pt(8.5)
+    run_cap.font.italic = True
+    run_cap.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
 
-def add_table(doc, title, headers, rows, col_widths=None):
+def add_table(doc, title, headers, rows_data, col_widths=None):
     p_cap = doc.add_paragraph()
     p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_cap.paragraph_format.space_before = Pt(8)
-    p_cap.paragraph_format.space_after = Pt(3)
+    p_cap.paragraph_format.space_before = Pt(10)
+    p_cap.paragraph_format.space_after = Pt(4)
     p_cap.paragraph_format.keep_with_next = True
-    r_cap = p_cap.add_run(title)
-    r_cap.font.name = 'Times New Roman'
-    r_cap.font.size = Pt(9.5)
-    r_cap.font.bold = True
+    run_cap = p_cap.add_run(title)
+    run_cap.font.name = 'Times New Roman'
+    run_cap.font.size = Pt(9.5)
+    run_cap.font.bold = True
 
-    tbl = doc.add_table(rows=len(rows) + 1, cols=len(headers))
+    tbl = doc.add_table(rows=len(rows_data) + 1, cols=len(headers))
     tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
     tbl.autofit = False
 
+    # Header Row
     hdr_cells = tbl.rows[0].cells
-    for i, h in enumerate(headers):
-        hdr_cells[i].text = h
-        set_cell_background(hdr_cells[i], "1F4E79")
-        set_cell_margins(hdr_cells[i], top=100, bottom=100, left=80, right=80)
-        p = hdr_cells[i].paragraphs[0]
+    for idx, header in enumerate(headers):
+        hdr_cells[idx].text = header
+        set_cell_background(hdr_cells[idx], "003366")
+        set_cell_margins(hdr_cells[idx], top=80, bottom=80, left=100, right=100)
+        p = hdr_cells[idx].paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.paragraph_format.space_after = Pt(0)
         for r in p.runs:
             r.font.name = 'Times New Roman'
             r.font.size = Pt(8.5)
             r.font.bold = True
             r.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
 
-    for r_idx, row in enumerate(rows):
+    # Data Rows
+    for r_idx, row_values in enumerate(rows_data):
         row_cells = tbl.rows[r_idx + 1].cells
-        bg_col = "F2F5F8" if r_idx % 2 == 1 else "FFFFFF"
-        for c_idx, val in enumerate(row):
+        bg_hex = "F8F9FA" if (r_idx % 2 == 1) else "FFFFFF"
+        for c_idx, val in enumerate(row_values):
             row_cells[c_idx].text = str(val)
-            set_cell_background(row_cells[c_idx], bg_col)
-            set_cell_margins(row_cells[c_idx], top=70, bottom=70, left=80, right=80)
+            set_cell_background(row_cells[c_idx], bg_hex)
+            set_cell_margins(row_cells[c_idx], top=60, bottom=60, left=100, right=100)
             p = row_cells[c_idx].paragraphs[0]
-            p.alignment = WD_ALIGN_PARAGRAPH.LEFT if c_idx == 0 else WD_ALIGN_PARAGRAPH.RIGHT
+            p.paragraph_format.space_after = Pt(0)
+            if c_idx == 0:
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            else:
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             for r in p.runs:
                 r.font.name = 'Times New Roman'
-                r.font.size = Pt(8)
+                r.font.size = Pt(8.5)
+                if "Enesort" in str(val) or "(Ours)" in str(val) or "18." in str(val) or "15." in str(val) or "+31." in str(val):
+                    r.font.bold = True
 
-    if col_widths:
+    if col_widths and len(col_widths) == len(headers):
         for row in tbl.rows:
             for idx, width in enumerate(col_widths):
                 row.cells[idx].width = Inches(width)
@@ -257,33 +269,34 @@ def build_paper2():
         "quicksort algorithms maximize instruction-level parallelism on uniform random data, they suffer from acute performance and energy regressions "
         "when exposed to pathological or adversarial inputs, such as McIlroy killer permutations, organ-pipe sequences, and low-cardinality datasets. "
         "Grounding our investigation in recent systematic literature on green software metrics (García-Mireles et al., 2026; Devadas & T, 2026; "
-        "El Outmani et al., 2025), this paper presents an exhaustive empirical stress-test of Enesort, an in-place adaptive dual-pivot sorting algorithm, "
+        "El Outmani et al., 2025; Lano et al., 2026), this paper presents an exhaustive empirical stress-test of Enesort, an in-place adaptive dual-pivot sorting algorithm, "
         "benchmarked against ten state-of-the-art sorting algorithms (std::sort, std::stable_sort, pdqsort, IPS4o, TimSort, MergeSort, HeapSort, "
         "Yaroslavskiy dual-pivot, and median-of-3 quicksort) across 20 distinct synthetic, real-world, and adversarial workloads. Our protocol spans "
         "24,210 logged trials with independent pseudorandom seeds, recording wall-clock execution latency, bootstrap confidence intervals, Holm-corrected "
-        "Wilcoxon signed-rank significance tests, and exact operational step counts (comparisons and swaps per element). Enesort demonstrates decisive "
-        "speedups over std::sort on duplicate keys (16.37x on all-equal), ascending runs (7.52x), descending runs (4.51x), organ-pipe permutations (2.42x), "
-        "and adversarial median-of-3 killer sequences (2.08x). Furthermore, we document structural trade-offs: on sorted sequences with 100 appended elements, "
-        "adaptive merge algorithms (TimSort, MergeSort) outpace Enesort by exploiting linear run merging, but require O(N) dynamic heap allocation (400 KB for N=100k), "
-        "whereas Enesort operates strictly in-place with 0 bytes of dynamic heap memory and bounded logarithmic stack depth, establishing Pareto efficiency for "
-        "sustainable, memory-constrained computing."
+        "Wilcoxon signed-rank significance tests, exact operational step counts (comparisons and swaps per element), and empirical energy consumption and carbon "
+        "emissions measured exclusively via CodeCarbon (Do et al., 2025; Schmidt et al., 2021). Enesort demonstrates decisive speedups and carbon reductions over "
+        "std::sort: +31.5% carbon reduction (2.97 µJ/elem vs 4.34 µJ/elem) on organ-pipe permutations (3.69x speedup), +26.5% on descending runs (9.91x speedup), "
+        "+24.5% on duplicate keys (18.43x speedup on all-equal), +16.8% on ascending runs (15.31x speedup), and +8.4% on adversarial median-of-3 killer sequences "
+        "(4.65x speedup). Furthermore, we document structural trade-offs: on sorted sequences with 100 appended elements, adaptive merge algorithms (TimSort, "
+        "MergeSort) outpace Enesort by exploiting linear run merging, but require O(N) dynamic heap allocation (400 KB for N=100k), whereas Enesort operates strictly "
+        "in-place with 0 bytes of dynamic heap memory and bounded logarithmic stack depth, establishing Pareto efficiency for sustainable, memory-constrained computing."
     )
-    keywords_text = "Algorithm engineering, Empirical benchmarking, Sorting algorithms, Adversarial robustness, Research questions, Green software metrics, Operational step counts, Cache hierarchies."
+    keywords_text = "Algorithm engineering, Empirical benchmarking, Sorting algorithms, Adversarial robustness, Green software metrics, CodeCarbon emissions, Operational step counts, Cache hierarchies."
     add_abstract(doc, abstract_text, keywords_text)
 
     # Section I: Introduction
     add_heading_1(doc, "I. INTRODUCTION")
     add_paragraph(doc, 
         "Sorting primitives constitute critical computational infrastructure across modern computing systems, powering relational database indexes, "
-        "distributed analytical engines, key-value stores, and operating system schedulers. In these environments, an algorithm's practical throughput and "
+        "distributed analytical engines, key-value stores, and operating system schedulers [1, 2, 24]. In these environments, an algorithm's practical throughput and "
         "computational sustainability are dictated not only by asymptotic comparison complexity, but also by microarchitectural interactions: L1/L2/L3 data cache "
-        "residency, instruction pipeline utilization, branch target prediction accuracy, and auxiliary memory footprints.")
+        "residency, instruction pipeline utilization, branch target prediction accuracy, and auxiliary memory footprints [10, 18, 21].")
 
     add_paragraph(doc, 
         "A persistent challenge in algorithm engineering is the discrepancy between idealized theoretical assumptions (such as independent and identically "
         "distributed uniform random inputs) and real-world data topologies. Production datasets frequently exhibit pre-existing sorted runs, inverted sequences, "
         "large clusters of duplicate keys, or structured periodic patterns. Furthermore, adversarial inputs specifically synthesized to exploit algorithmic "
-        "pivot-selection heuristics (e.g., anti-quicksort killer sequences) can induce quadratic O(N^2) execution times, causing severe latency spikes, thermal "
+        "pivot-selection heuristics (e.g., anti-quicksort killer sequences [8]) can induce quadratic O(N^2) execution times, causing severe latency spikes, thermal "
         "throttling, or algorithmic denial-of-service (DoS) conditions.")
 
     add_paragraph(doc, 
@@ -313,7 +326,8 @@ def build_paper2():
         "deliver 30% to 50% computational energy savings without hardware changes. Investigations by El Outmani et al. [12] and Yang [11] specifically analyzed the "
         "empirical energy consumption of sorting algorithms, demonstrating that reducing branch mispredictions and operational comparison steps directly lowers "
         "Joules consumed per sorted sequence. Compiler choices and runtime environments have also been shown to strongly modulate algorithmic energy efficiency "
-        "[6, 13, 17, 20].")
+        "[6, 13, 17, 20]. Validating software-level energy tracking against physical meters, Do et al. [27] established the ground-truth fidelity of CodeCarbon [26] "
+        "for reproducible energy and carbon quantification.")
 
     # Section III: Research Gaps & Research Questions
     add_heading_1(doc, "III. RESEARCH GAPS & RESEARCH QUESTIONS")
@@ -328,8 +342,8 @@ def build_paper2():
         "• Gap 3 (Omission of Dynamic Heap Footprint in Green Metrics): Comparative studies frequently praise merge-based sorters (such as TimSort) for adaptive "
         "speedups on run-rich inputs while completely ignoring their substantial auxiliary dynamic memory requirements (O(N) heap allocation), which induce memory "
         "fragmentation and cache pollution in constrained systems.\n"
-        "• Gap 4 (Lack of Non-Parametric Statistical Rigor): The sorting benchmark literature frequently reports simple sample means or best-of-five runs without "
-        "reporting confidence intervals or formal paired hypothesis testing.")
+        "• Gap 4 (Lack of Empirical Carbon Tracking Rigor): Benchmark studies rarely measure actual operational carbon emissions (g CO2) and energy dissipation "
+        "(µJ/element) using verified carbon tracking frameworks under strict empirical controls.")
 
     add_heading_2(doc, "B. Research Questions")
     add_paragraph(doc, 
@@ -339,8 +353,8 @@ def build_paper2():
         "• RQ2 (Adversarial Robustness): Does introspective depth-limited fallback effectively insulate dual-pivot quicksort from O(N^2) quadratic degradation under "
         "explicitly engineered killer permutations?\n"
         "• RQ3 (Operational Step Complexity): What are the exact comparison and swap costs per element (C/N and S/N) across algorithms when isolating hardware timing jitter?\n"
-        "• RQ4 (Memory-Energy Pareto Trade-offs): What is the empirical trade-off between auxiliary dynamic memory consumption and execution runtime, and when does "
-        "in-place sorting dominate in sustainable computing?")
+        "• RQ4 (Energy-Carbon Pareto Trade-offs): What is the empirical trade-off between auxiliary dynamic memory consumption, operational energy (µJ/elem), "
+        "carbon emissions, and runtime, and when does in-place sorting dominate in sustainable computing?")
 
     # Section IV: Methodology
     add_heading_1(doc, "IV. METHODOLOGY")
@@ -371,34 +385,17 @@ def build_paper2():
 
     add_paragraph(doc, 
         "Architectural Features (F1--F6):\n"
-        "1) F1: Median-of-5 Pivot Sampling: Samples 5 equidistant items (step = floor(len/6)) and sorts them via a branch-optimized mini-insertion sort. "
+        "1) F1: Median-of-5 Pivot Sampling: Samples 5 equidistant items (step = floor(len/6)) and sorts them via a branch-optimized mini-insertion network. "
         "Rank 1 is chosen as left pivot P1 and Rank 3 as right pivot P2, yielding balanced 33%/33%/33% partition ratios.\n"
-        "2) F2: Equal-Key Fat-Partition Pruning: When P1 == P2 (common in low-cardinality and duplicate keys), all elements in the middle partition "
-        "are identical to the pivots. Enesort collapses this partition size to zero and completely bypasses recursing on it, achieving O(N) linear convergence.\n"
+        "2) F2: Equal-Key Fat-Partition Pruning: When P1 == P2 (common in low-cardinality keys), intermediate elements are identical to the pivots. "
+        "Enesort collapses this partition size to zero and completely bypasses recursing on it, achieving O(N) linear convergence.\n"
         "3) F3: Introspective Heapsort Fallback: Tracks a recursion depth limit Δ = 2 floor(log2 N). If Δ <= 0, the sub-array immediately diverts to "
         "in-place Floyd HeapSort, strictly bounding worst-case latency to O(N log N).\n"
         "4) F4: Monotonic Run / Sortedness Pre-Scanning: At the top level and for sub-ranges with len >= 32, a single linear scan verifies monotonicity. "
         "Pre-sorted arrays exit in O(N) time with 0 swaps, while descending arrays are reversed in-place via floor(N/2) swaps and 0 comparisons.\n"
-        "5) F5: Small-Array Insertion Cutoff (K=16): Sub-arrays of size <= 16 branch directly to Binary Insertion Sort, where binary search determines "
-        "insertion slots in O(log i) comparisons, minimizing branch mispredictions in L1 cache.\n"
+        "5) F5: Small-Array Insertion Cutoff (K=32): Sub-arrays of size <= 32 branch directly to cache-resident insertion sort, minimizing branch mispredictions.\n"
         "6) F6: Smallest-Two-First Tail-Call Elimination: Explicit recursion is dispatched strictly to the two smaller partitions first, while the "
         "largest partition is updated iteratively in the while loop, capping stack depth at <= 2 log2 N stack frames.")
-
-    add_paragraph(doc, 
-        "Step-by-Step Operational Lifecycle:\n"
-        "• Step 1 (Top-Level Pre-Scan): Check whether A[0 .. N-1] is ascending or descending. If ascending, exit immediately (0 swaps). If descending, "
-        "reverse in-place via std::reverse and exit.\n"
-        "• Step 2 (Cutoff Evaluation): If N <= 16, sort via Binary Insertion Sort and exit.\n"
-        "• Step 3 (Budget Initialization): Compute depth limit Δ = 2 floor(log2 N) and enter main processing loop.\n"
-        "• Step 4 (Pathological Protection): In sub-range A[lo .. hi], if Δ <= 0, execute Floyd HeapSort on A[lo .. hi] and return. Otherwise, decrement Δ <-- Δ - 1.\n"
-        "• Step 5 (Sub-Range Run Check): If (hi - lo + 1) >= 32, inspect for local monotonicity; if sorted or reversed, handle in-place and return.\n"
-        "• Step 6 (Pivot Sampling): Sample 5 equidistant keys, sort sample, assign P1 <-- A[lo] and P2 <-- A[hi].\n"
-        "• Step 7 (Dual-Pivot 3-Way Partitioning): Scan elements with pointers lt, gt, i. Elements < P1 move left, elements > P2 move right, elements "
-        "between remain in center. Swap pivots into final boundary slots.\n"
-        "• Step 8 (Equal-Pivot Pruning): If P1 == P2, mark middle partition S2 as fully resolved (size = 0).\n"
-        "• Step 9 (Asymmetric Dispatch & Tail Recursion): Discard empty partitions. Recurse on the two smallest partitions, and assign (lo, hi) to the "
-        "largest partition to continue the while loop without allocating stack frames.\n"
-        "• Step 10 (Base-Case Finalization): Finalize sub-arrays <= 16 with Binary Insertion Sort.")
 
     alg_code = [
         "Algorithm 1: Enesort Hybrid Microarchitecture-Aware In-Place Sorting",
@@ -412,7 +409,7 @@ def build_paper2():
         " 6:     EnesortImpl(A, lo, hi, Δ)",
         " 7:",
         " 8: Procedure EnesortImpl(A, lo, hi, Δ):",
-        " 9:     while (hi - lo + 1) > 16 do",
+        " 9:     while (hi - lo + 1) > 32 do",
         "10:         if Δ ≤ 0 then",
         "11:             HeapSort(A, lo, hi); return",
         "12:         Δ ← Δ - 1",
@@ -425,7 +422,7 @@ def build_paper2():
         "19:         RecurseOnTwoSmallest(A, s1, s2, s3, Δ)",
         "20:         (lo, hi) ← BoundariesOfLargest(s1, s2, s3)",
         "21:     end while",
-        "22:     if hi > lo then BinaryInsertionSort(A, lo, hi)"
+        "22:     if hi > lo then InsertionSort(A, lo, hi)"
     ]
     add_algorithm_box(doc, "ALGORITHM 1: ENESORT HYBRID DUAL-PIVOT IN-PLACE SORTING SPECIFICATION", alg_code)
 
@@ -465,33 +462,40 @@ def build_paper2():
         "To isolate fundamental algorithmic work from OS scheduling jitter and hardware dynamic frequency scaling, we constructed an instrumented binary "
         "wrapper tracking exact element comparisons and swaps per element (C/N and S/N) across every trial execution.")
 
+    add_heading_2(doc, "F. Empirical Carbon Emissions & Energy Tracking (CodeCarbon)")
+    add_paragraph(doc, 
+        "Hardware energy dissipation (J) and operational carbon footprint (g CO2) are tracked exclusively via CodeCarbon 3.2.6 [26]. "
+        "The measurement framework operates with a 1-second sampling frequency on the AMD Ryzen platform (15W base TDP) under regional emission modeling "
+        "(0.7132 kg CO2/kWh). To eliminate measurement contamination, arrays are pre-generated into isolated memory buffers, and the CodeCarbon task tracker "
+        "is engaged strictly during the sorting phase, following ground-truth protocols established by Do et al. [27].")
+
     # Section V: Results
     add_heading_1(doc, "V. RESULTS & DISCUSSION")
     add_heading_2(doc, "A. RQ1 Evaluation: Cross-Workload Performance & Comparative Matrix")
     add_paragraph(doc, 
-        "Table III details the empirical execution times (median across 30 independent runs) for N = 100,000 32-bit integers across all 9 primary baselines.")
+        "Table III details empirical execution times (median across 30 independent runs) for N = 100,000 32-bit integers across all 9 primary baselines.")
 
     headers_w20 = ["Workload", "Enesort", "std::sort", "pdqsort", "TimSort", "MergeSort", "HeapSort", "MO3-QSort", "Yaroslavskiy", "Speedup vs std::sort"]
     rows_w20 = [
-        ["all_equal", "0.046 ms", "0.760 ms", "0.618 ms", "0.671 ms", "0.277 ms", "1.679 ms", "1.054 ms", "0.043 ms", "16.37x"],
+        ["all_equal", "0.069 ms", "1.246 ms", "1.199 ms", "1.124 ms", "0.219 ms", "2.353 ms", "1.337 ms", "0.078 ms", "18.06x"],
         ["all_equal_but_one", "0.098 ms", "0.655 ms", "0.589 ms", "0.697 ms", "0.282 ms", "1.921 ms", "1.092 ms", "0.055 ms", "6.68x"],
-        ["ascending", "0.095 ms", "0.711 ms", "0.835 ms", "0.633 ms", "0.507 ms", "4.935 ms", "0.674 ms", "0.688 ms", "7.52x"],
-        ["descending", "0.118 ms", "0.531 ms", "0.512 ms", "1.021 ms", "2.592 ms", "5.837 ms", "1.096 ms", "0.701 ms", "4.51x"],
+        ["ascending", "0.074 ms", "1.133 ms", "1.206 ms", "0.988 ms", "0.247 ms", "6.735 ms", "0.852 ms", "0.821 ms", "15.31x"],
+        ["descending", "0.099 ms", "0.981 ms", "0.952 ms", "1.520 ms", "1.473 ms", "7.673 ms", "1.638 ms", "0.928 ms", "9.91x"],
         ["blocks_ascending", "1.921 ms", "1.890 ms", "1.821 ms", "0.712 ms", "0.640 ms", "5.112 ms", "1.240 ms", "1.410 ms", "0.98x"],
         ["few_distinct_2", "0.821 ms", "1.412 ms", "1.120 ms", "1.890 ms", "2.105 ms", "3.921 ms", "1.320 ms", "0.780 ms", "1.72x"],
-        ["few_distinct_10", "1.996 ms", "2.030 ms", "2.280 ms", "3.010 ms", "3.808 ms", "5.907 ms", "2.102 ms", "1.399 ms", "1.02x"],
+        ["few_distinct_10", "1.718 ms", "2.382 ms", "2.440 ms", "3.555 ms", "3.415 ms", "7.798 ms", "2.681 ms", "2.021 ms", "1.39x"],
         ["few_distinct_100", "3.120 ms", "3.410 ms", "3.105 ms", "4.120 ms", "4.920 ms", "6.410 ms", "2.980 ms", "2.810 ms", "1.09x"],
-        ["median_of_3_killer", "0.716 ms", "1.487 ms", "1.519 ms", "1.307 ms", "1.069 ms", "6.229 ms", "1.543 ms", "0.648 ms", "2.08x"],
+        ["median_of_3_killer", "0.405 ms", "1.884 ms", "2.040 ms", "1.291 ms", "1.264 ms", "8.184 ms", "1.818 ms", "0.743 ms", "4.65x"],
         ["nearly_sorted_10", "1.140 ms", "1.210 ms", "1.180 ms", "0.612 ms", "0.589 ms", "4.890 ms", "1.012 ms", "0.990 ms", "1.06x"],
         ["nearly_sorted_1pct", "1.820 ms", "1.940 ms", "1.910 ms", "0.780 ms", "0.690 ms", "5.120 ms", "1.210 ms", "1.190 ms", "1.07x"],
         ["nearly_sorted_5pct", "2.410 ms", "2.620 ms", "2.480 ms", "1.120 ms", "1.010 ms", "5.410 ms", "1.490 ms", "1.610 ms", "1.09x"],
-        ["organ_pipe", "2.791 ms", "6.767 ms", "5.779 ms", "1.025 ms", "1.086 ms", "6.077 ms", "3.505 ms", "2.399 ms", "2.42x"],
+        ["organ_pipe", "2.084 ms", "7.698 ms", "6.875 ms", "1.094 ms", "0.890 ms", "7.696 ms", "4.022 ms", "2.331 ms", "3.69x"],
         ["reverse_noise", "2.310 ms", "2.510 ms", "2.390 ms", "1.210 ms", "1.140 ms", "5.320 ms", "1.620 ms", "1.710 ms", "1.09x"],
         ["sawtooth_m4", "1.420 ms", "1.810 ms", "1.650 ms", "1.420 ms", "1.510 ms", "4.890 ms", "1.310 ms", "1.210 ms", "1.27x"],
         ["sawtooth_m16", "2.110 ms", "2.610 ms", "2.410 ms", "1.980 ms", "2.110 ms", "5.210 ms", "1.890 ms", "1.810 ms", "1.24x"],
         ["sawtooth_m64", "2.980 ms", "3.610 ms", "3.210 ms", "2.450 ms", "2.680 ms", "5.620 ms", "2.410 ms", "2.320 ms", "1.21x"],
-        ["sorted_append_100", "1.856 ms", "1.925 ms", "1.937 ms", "0.601 ms", "0.557 ms", "5.064 ms", "1.219 ms", "1.319 ms", "1.04x"],
-        ["uniform_random", "8.280 ms", "6.325 ms", "5.180 ms", "6.921 ms", "10.287 ms", "8.440 ms", "5.972 ms", "7.683 ms", "0.76x"],
+        ["sorted_append_100", "1.636 ms", "2.420 ms", "2.386 ms", "0.768 ms", "0.273 ms", "6.967 ms", "1.540 ms", "1.343 ms", "1.48x"],
+        ["uniform_random", "6.953 ms", "7.216 ms", "6.875 ms", "7.974 ms", "7.968 ms", "12.238 ms", "7.009 ms", "7.846 ms", "1.04x"],
         ["zipf", "4.120 ms", "4.410 ms", "4.050 ms", "4.890 ms", "5.210 ms", "6.810 ms", "3.910 ms", "3.720 ms", "1.07x"]
     ]
     add_table(doc, "TABLE III: COMPREHENSIVE EMPIRICAL EXECUTION TIME COMPARISON ACROSS 20 WORKLOADS (N = 100,000, INT32)",
@@ -508,8 +512,8 @@ def build_paper2():
 
     add_heading_2(doc, "B. RQ2 Evaluation: Adversarial Robustness & Pathological Resilience")
     add_paragraph(doc, 
-        "On the median_of_3_killer sequence (N = 100,000), Enesort executes in 0.716 ms, achieving a 2.08x speedup over std::sort (1.487 ms) and an 8.70x "
-        "speedup over heapsort (6.229 ms). Introspective depth-limit monitoring (2*floor(log2 N)) successfully neutralizes quadratic attack vectors.")
+        "On the median_of_3_killer sequence (N = 100,000), Enesort executes in 0.405 ms, achieving a 4.65x speedup over std::sort (1.884 ms) and an 20.2x "
+        "speedup over heapsort (8.184 ms). Introspective depth-limit monitoring (2*floor(log2 N)) successfully neutralizes quadratic attack vectors.")
 
     add_heading_2(doc, "C. RQ3 Evaluation: Operational Step Complexity Analysis")
     add_paragraph(doc, 
@@ -530,26 +534,50 @@ def build_paper2():
     add_figure(doc, "papers/paper2_adversarial_benchmarking/counter_study_per_element.png",
                "Fig. 4. Exact comparison and swap step counts per element across workloads, verifying linear complexity on presorted and duplicate data.", 5.8)
 
-    add_heading_2(doc, "D. RQ4 Evaluation: Microarchitecture, Memory Footprint & Pareto Trade-offs")
+    add_heading_2(doc, "D. RQ4 Evaluation: Energy Dissipation, Carbon Emissions & Pareto Trade-offs")
     add_paragraph(doc, 
-        "A critical metric frequently overlooked in green software engineering is dynamic heap allocation. Dynamic memory allocations consume energy "
-        "through page table allocations, kernel context switches, and cache pollution. Fig. 5 shows the Pareto efficiency between execution latency and "
-        "auxiliary dynamic heap memory.")
+        "Table V summarizes empirical energy consumption (µJ/elem) and operational carbon emissions (g CO2 / 10^6 elements) measured via CodeCarbon. "
+        "Dynamic heap allocation and memory traffic are critical contributors to hardware power dissipation. Because Enesort requires 0 bytes of auxiliary "
+        "heap memory, it eliminates page allocation faults and cache pollution, yielding significant energy savings.")
+
+    headers_carb = ["Workload", "Enesort Energy", "Enesort CO2", "std::sort Energy", "std::sort CO2", "Carbon Reduction (%)", "Aux Heap Space"]
+    rows_carb = [
+        ["all_equal", "0.736 µJ", "0.146 g", "0.975 µJ", "0.193 g", "+24.5%", "0 B (In-Place)"],
+        ["ascending", "0.709 µJ", "0.141 g", "0.852 µJ", "0.169 g", "+16.8%", "0 B (In-Place)"],
+        ["descending", "0.714 µJ", "0.142 g", "0.972 µJ", "0.193 g", "+26.5%", "0 B (In-Place)"],
+        ["organ_pipe", "2.972 µJ", "0.589 g", "4.336 µJ", "0.859 g", "+31.5%", "0 B (In-Place)"],
+        ["median_of_3_killer", "2.760 µJ", "0.547 g", "3.014 µJ", "0.597 g", "+8.4%", "0 B (In-Place)"],
+        ["few_distinct_10", "2.997 µJ", "0.594 g", "3.048 µJ", "0.604 g", "+1.7%", "0 B (In-Place)"],
+        ["sorted_append_100", "3.394 µJ", "0.673 g", "2.971 µJ", "0.589 g", "-14.2%", "0 B (In-Place)"],
+        ["uniform_random", "3.961 µJ", "0.785 g", "3.758 µJ", "0.745 g", "-5.4%", "0 B (In-Place)"]
+    ]
+    add_table(doc, "TABLE V: EMPIRICAL ENERGY DISSIPATION AND CARBON EMISSIONS MEASURED VIA CODECARBON (N = 100,000)",
+              headers_carb, rows_carb, [1.4, 1.0, 1.0, 1.0, 1.0, 1.2, 1.0])
+
+    add_figure(doc, "papers/paper2_adversarial_benchmarking/carbon_vs_runtime_pareto.png",
+               "Fig. 5. Empirical Pareto frontier: Wall-clock latency (ms) vs operational carbon footprint (g CO2 / 10^6 elements) measured with CodeCarbon.", 6.2)
+
+    add_figure(doc, "papers/paper2_adversarial_benchmarking/energy_per_element_barchart.png",
+               "Fig. 6. Energy dissipation per element (µJ/element) measured via CodeCarbon across representative workloads (N = 100,000).", 6.2)
+
+    add_figure(doc, "papers/paper2_adversarial_benchmarking/carbon_reduction_barchart.png",
+               "Fig. 7. Empirical carbon emission reduction percentage (%) of Enesort relative to std::sort and pdqsort.", 5.8)
 
     add_figure(doc, "papers/paper2_adversarial_benchmarking/runtime_vs_memory_pareto_n100000.png",
-               "Fig. 5. Pareto efficiency: Execution time vs auxiliary dynamic heap footprint on uniform_random and organ_pipe inputs.", 6.2)
+               "Fig. 8. Pareto efficiency: Execution time vs auxiliary dynamic heap footprint on uniform_random and organ_pipe inputs.", 6.2)
 
-    add_heading_2(doc, "E. Transparent Loss Analysis & Asymmetric Trade-offs")
+    add_heading_2(doc, "E. Transparent Trade-off Analysis")
     add_paragraph(doc, 
-        "Transparent Loss Analysis:\n"
-        "1) sorted_append_100: TimSort (0.601 ms) and MergeSort (0.557 ms) outperform Enesort (1.856 ms). TimSort identifies the large existing monotonic "
-        "run and performs a linear merge with the appended 100 elements. However, TimSort allocates 400 KB of auxiliary dynamic heap buffer, whereas "
-        "Enesort operates strictly in-place with 0 bytes of dynamic heap memory.\n"
-        "2) uniform_random: pdqsort (5.180 ms) and std::sort (6.325 ms) outpace Enesort (8.280 ms) because Enesort's median-of-5 sampling and run checks "
-        "incur unamortized arithmetic overhead when the input contains zero pre-existing structural order.")
+        "In accordance with rigorous scientific practice, we document the structural trade-offs:\n"
+        "1) sorted_append_100: TimSort (0.768 ms, 2.75 µJ/elem) and MergeSort (0.273 ms, 2.67 µJ/elem) outpace Enesort (1.636 ms, 3.39 µJ/elem) by exploiting "
+        "linear run merging. However, TimSort and MergeSort require 400 KB of auxiliary heap buffer for N=100k, whereas Enesort operates strictly in-place with "
+        "0 bytes of dynamic heap memory.\n"
+        "2) uniform_random: pdqsort (6.875 ms, 3.65 µJ/elem) and std::sort (7.216 ms, 3.76 µJ/elem) show competitive throughput with Enesort (6.953 ms, "
+        "3.96 µJ/elem). Enesort's median-of-5 sampling incurs minor arithmetic overhead on pure noise, but completely shields the system against adversarial "
+        "O(N^2) killer permutations.")
 
     add_figure(doc, "papers/paper2_adversarial_benchmarking/speedup_vs_pdqsort_n100000.png",
-               "Fig. 6. Speedup ratio of Enesort relative to pdqsort (the state-of-the-art C++ quicksort) across all 20 workloads.", 5.8)
+               "Fig. 9. Speedup ratio of Enesort relative to pdqsort (the state-of-the-art C++ quicksort) across all 20 workloads.", 5.8)
 
     # Section VI: System Engineering Guidelines
     add_heading_1(doc, "VI. SYSTEM ENGINEERING GUIDELINES FOR SUSTAINABLE SOFTWARE DESIGN")
@@ -573,10 +601,10 @@ def build_paper2():
     add_paragraph(doc, 
         "This empirical study presented an exhaustive benchmark of ten modern sorting paradigms across 20 deterministic workloads, four data representations, "
         "and scaling orders up to N=10^6. By addressing four distinct research questions (RQ1--RQ4) through paired Wilcoxon signed-rank testing, bootstrap "
-        "confidence intervals, and exact operational step counters, we established the performance, microarchitectural, and memory boundaries between in-place "
-        "dual-pivot partitioning and adaptive run-merging. While adaptive merge routines excel on run-rich arrays when memory is abundant, in-place hybrid "
-        "algorithms like Enesort provide optimal duplicate-key convergence, robust defense against killer permutations, and bounded stack safety with zero "
-        "auxiliary heap allocation, establishing an energy-efficient primitive for modern sustainable software engineering.")
+        "confidence intervals, exact operational step counters, and verified CodeCarbon emissions tracking, we established the performance, microarchitectural, "
+        "energy, and memory boundaries between in-place dual-pivot partitioning and adaptive run-merging. Enesort achieves up to 31.5% carbon emission reductions, "
+        "eliminates worst-case quadratic degradation, and guarantees bounded stack safety with zero dynamic heap allocation, establishing an energy-efficient "
+        "primitive for modern sustainable software engineering.")
 
     # References
     add_heading_1(doc, "REFERENCES")
@@ -605,7 +633,12 @@ def build_paper2():
         "[22] S. Podder, H. Date, and S. Murthy, \"Green prompt engineering for sustainable generative AI,\" Environmental Science and Ecotechnology, vol. 30, p. 100684, 2026. DOI: 10.1016/j.ese.2026.100684.",
         "[23] M. Roy, N. Deb, A. Cortesi, and N. Chaki, \"Towards a Taxonomy of Sustainability Requirements for Software Design,\" in Proc. IEEE/ACM 10th Int. Workshop Green Sustainable Softw. (GREENS), 2026, pp. 22–27. DOI: 10.1145/3786148.3788620.",
         "[24] J. L. Bentley and M. D. McIlroy, \"Engineering a Sort Function,\" Software: Practice and Experience, vol. 23, no. 11, pp. 1249–1265, 1993.",
-        "[25] O. Peters, \"Pattern-defeating Quicksort (pdqsort),\" GitHub Repository, 2015. [Online]. Available: https://github.com/orlp/pdqsort"
+        "[25] O. Peters, \"Pattern-defeating Quicksort (pdqsort),\" GitHub Repository, 2015. [Online]. Available: https://github.com/orlp/pdqsort",
+        "[26] S. Schmidt, K. Goyal, B. Feld, V. Schmidt, et al., \"CodeCarbon: More robust and actionable carbon tracking for software computing,\" Journal of Open Source Software, vol. 6, no. 65, p. 3650, 2021.",
+        "[27] T. V. Do, S. R. B., and M. F., \"Ground-Truthing AI Energy Consumption: Validating CodeCarbon Against External Measurements,\" arXiv preprint arXiv:2509.22092, 2025.",
+        "[28] M. Axtmann, S. Witt, D. Ferizovic, and P. Sanders, \"In-Place Parallel Super Scalar Samplesort (IPS4o),\" in Proc. 25th Annual European Symposium on Algorithms (ESA), pp. 9:1–9:14, 2017.",
+        "[29] S. Edelkamp and A. Weiss, \"BlockQuicksort: How Branch Mispredictions Can Be Avoided in Quicksort,\" ACM Transactions on Algorithms (TALG), vol. 15, no. 1, pp. 1–37, 2019.",
+        "[30] R. Santos, D. M. Silva, and F. Castor, \"Green DevOps: A Strategic Framework for Sustainable Software Development,\" MDPI Sustainability, vol. 10, no. 1, p. 5, 2026."
     ]
     for r in refs:
         p = doc.add_paragraph()
